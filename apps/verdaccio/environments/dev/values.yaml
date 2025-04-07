@@ -1,0 +1,21 @@
+environment: dev
+namespace: fintech-personal-dev
+replicas: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+storage:
+  size: 2Gi
+
+ingress:
+  host: verdaccio-dev.fintech.local
+  webServer: "internal"
+  tls:
+    enabled: false
+    issuer: ""

@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: verdaccio-dev
+  namespace: argocd
+spec:
+  project: fintech-personal
+  source:
+    repoURL: https://github.com/yourusername/fintech-personal-tools.git
+    targetRevision: HEAD
+    path: apps/verdaccio/environments/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: fintech-personal-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

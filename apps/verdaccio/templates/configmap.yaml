@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: verdaccio-config-{{.Values.environment}}
+  namespace: {{.Values.namespace}}
+  labels:
+    app: verdaccio
+    environment: {{.Values.environment}}
+data:
+  config.yaml: |
+    storage: /verdaccio/storage
+    
+    auth:
+      htpasswd:
+        file: /verdaccio/storage/htpasswd
+        max_users: 1000
+    
+    uplinks:
+      npmjs:
+        url: https://registry.npmjs.org/
+        maxage: 30m
+        max_fails: 5
+        fail_timeout: 5m
+        timeout: 60s
+        cache: true
+    
+    packages:
+      '@fintech-personal/*':
+        access: $authenticated
+        publish: $authenticated
+        unpublish: $authenticated
+        proxy: npmjs
+    
+      '**':
+        access: $all
+        publish: $authenticated
+        unpublish: $authenticated
+        proxy: npmjs
+    
+    server:
+      keepAliveTimeout: 60
+    
+    middlewares:
+      audit:
+        enabled: true
+    
+    logs:
+      - {type: stdout, format: pretty, level: http}
+    
+    max_body_size: 100mb

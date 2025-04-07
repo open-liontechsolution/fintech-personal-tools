@@ -1,0 +1,21 @@
+environment: prod
+namespace: fintech-personal-prod
+replicas: 3
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+storage:
+  size: 5Gi
+
+ingress:
+  host: verdaccio.fintech.local
+  webServer: "primary"
+  tls:
+    enabled: true
+    issuer: "letsencrypt-prod"

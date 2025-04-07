@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: verdaccio
+  namespace: {{.Values.namespace}}
+  labels:
+    app: verdaccio
+    environment: {{.Values.environment}}
+spec:
+  replicas: {{.Values.replicas}}
+  selector:
+    matchLabels:
+      app: verdaccio
+      environment: {{.Values.environment}}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: verdaccio
+        environment: {{.Values.environment}}
+    spec:
+      containers:
+      - name: verdaccio
+        image: verdaccio/verdaccio:6
+        resources:
+          requests:
+            cpu: {{.Values.resources.requests.cpu}}
+            memory: {{.Values.resources.requests.memory}}
+          limits:
+            cpu: {{.Values.resources.limits.cpu}}
+            memory: {{.Values.resources.limits.memory}}
+        ports:
+        - containerPort: 4873
+          name: http
+        livenessProbe:
+          httpGet:
+            path: /-/ping
+            port: http
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ping
+            port: http
+          initialDelaySeconds: 5
+          timeoutSeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - name: verdaccio-storage
+          mountPath: /verdaccio/storage
+        - name: verdaccio-config
+          mountPath: /verdaccio/conf/config.yaml
+          subPath: config.yaml
+      volumes:
+      - name: verdaccio-storage
+        persistentVolumeClaim:
+          claimName: verdaccio-storage-{{.Values.environment}}
+      - name: verdaccio-config
+        configMap:
+          name: verdaccio-config-{{.Values.environment}}
