@@ -1,0 +1,107 @@
+## Verdaccio Helm Chart valores para entorno PROD
+
+# Asignamos namespace específico del entorno
+fullnameOverride: "verdaccio"
+nameOverride: "verdaccio"
+
+# Número de réplicas para el entorno de producción
+replicaCount: 3
+
+# Configuración de imagen
+image:
+  repository: verdaccio/verdaccio
+  tag: "6"
+  pullPolicy: IfNotPresent
+
+# Recursos asignados al pod
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+# Configuración del servicio
+service:
+  type: ClusterIP
+  port: 4873
+
+# Configuración de ingress usando Cilium
+ingress:
+  enabled: true
+  ingressClassName: "cilium"
+  annotations:
+    io.cilium/ingress-controller: "true"
+    io.cilium/web-server: "primary"
+    io.cilium/tls: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: verdaccio.fintech.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: verdaccio-tls
+      hosts:
+        - verdaccio.fintech.local
+
+# Configuración de almacenamiento usando Longhorn
+persistence:
+  enabled: true
+  storageClass: "longhorn"
+  size: 5Gi
+  accessMode: ReadWriteOnce
+
+# Configuración personalizada de Verdaccio
+configMap:
+  storage: /verdaccio/storage/data
+  auth:
+    htpasswd:
+      file: /verdaccio/storage/data/htpasswd
+      max_users: 1000
+  uplinks:
+    npmjs:
+      url: https://registry.npmjs.org/
+      maxage: 30m
+      max_fails: 5
+      fail_timeout: 5m
+      timeout: 60s
+      cache: true
+  packages:
+    '@fintech-personal/*':
+      access: $authenticated
+      publish: $authenticated
+      unpublish: $authenticated
+      proxy: npmjs
+    '**':
+      access: $all
+      publish: $authenticated
+      unpublish: $authenticated
+      proxy: npmjs
+  server:
+    keepAliveTimeout: 60
+  middlewares:
+    audit:
+      enabled: true
+  logs:
+    - {type: stdout, format: pretty, level: http}
+  max_body_size: 100mb
+
+# Definir etiquetas para identificar el entorno
+extraLabels:
+  environment: prod
+
+# Configuración de afinidad para distribuir los pods entre nodos
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - verdaccio
+        topologyKey: kubernetes.io/hostname

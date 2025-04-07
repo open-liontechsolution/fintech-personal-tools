@@ -17,7 +17,7 @@ Este repositorio está diseñado para funcionar con:
 - Gestión de paquetes privados
 - Cache de paquetes públicos
 - Autenticación y control de acceso
-- Despliegue como servicio en Kubernetes
+- Despliegue como servicio en Kubernetes utilizando el Helm chart oficial
 
 ### 2. Configuración de Kubernetes
 - Recursos separados por entornos (dev, qa, prod)
@@ -30,23 +30,34 @@ Este repositorio está diseñado para funcionar con:
 ```
 fintech-personal-tools/
 ├── apps/                  # Aplicaciones/servicios de infraestructura
-│   ├── verdaccio/        # Verdaccio NPM Registry
-│       ├── base/         # Configuración base (común)
-│       ├── overlays/     # Configuraciones específicas por entorno
-│           ├── dev/      # Entorno de desarrollo
-│           ├── qa/       # Entorno de pruebas
-│           └── prod/     # Entorno de producción
-├── platform/             # Configuración general de la plataforma
-│   ├── namespaces/       # Definición de namespaces
-│   ├── rbac/            # Configuración de RBAC
-│   ├── networking/       # Configuración de networking (Cilium)
-│   └── storage/          # Configuración de almacenamiento (Longhorn)
-└── docs/                 # Documentación
+│   ├── verdaccio/         # Verdaccio NPM Registry
+│       ├── argocd/        # Configuración de ArgoCD por entorno
+│       │   ├── application-dev.yaml
+│       │   ├── application-qa.yaml
+│       │   └── application-prod.yaml
+│       ├── helm-values/   # Valores para el chart de Helm por entorno
+│       │   ├── dev/       # Valores para entorno de desarrollo
+│       │   ├── qa/        # Valores para entorno de pruebas
+│       │   └── prod/      # Valores para entorno de producción
+│       └── README.md      # Documentación específica de Verdaccio
+├── platform/              # Configuración general de la plataforma
+│   ├── namespaces/        # Definición de namespaces
+│   ├── rbac/              # Configuración de RBAC
+│   ├── networking/        # Configuración de networking (Cilium)
+│   └── storage/           # Configuración de almacenamiento (Longhorn)
+└── docs/                  # Documentación
 ```
 
 ## Despliegue con ArgoCD
 
-Este repositorio está estructurado para ser desplegado con ArgoCD. Cada directorio en `apps/` y `platform/` contiene un manifiesto de aplicación de ArgoCD que puede ser utilizado para desplegar los recursos correspondientes.
+ArgoCD se encarga de la sincronización automática de los recursos en el clúster. Cada aplicación tiene configurada:
+
+1. La fuente del chart de Helm (para aplicaciones que usen charts oficiales)
+2. Los valores específicos para cada entorno
+3. El namespace de destino
+4. Las políticas de sincronización
+
+Esto permite tener un flujo GitOps completo donde cualquier cambio en el repositorio se refleja automáticamente en el clúster, manteniendo la infraestructura como código.
 
 ## Gestión de Secretos
 
