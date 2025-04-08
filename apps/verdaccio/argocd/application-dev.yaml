@@ -3,6 +3,15 @@ kind: Application
 metadata:
   name: verdaccio-dev
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/sync-options: Prune=false
+    # Ignorar recursos de Cilium
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/resource-exclusions: |
+      - apiGroups: ["cilium.io"]
+        kinds: ["CiliumIdentity"]
+        clusters: ["*"]
 spec:
   project: tools
   sources:

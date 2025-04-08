@@ -3,11 +3,20 @@ kind: Application
 metadata:
   name: verdaccio-prod
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+    argocd.argoproj.io/sync-options: Prune=false
+    # Ignorar recursos de Cilium
+    argocd.argoproj.io/sync-wave: "0"
+    argocd.argoproj.io/resource-exclusions: |
+      - apiGroups: ["cilium.io"]
+        kinds: ["CiliumIdentity"]
+        clusters: ["*"]
 spec:
-  project: fintech-personal
+  project: tools
   sources:
     - repoURL: https://charts.verdaccio.org
-      targetRevision: 4.6.2
+      targetRevision: 4.26.1
       chart: verdaccio
       helm:
         releaseName: verdaccio-prod
@@ -18,7 +27,7 @@ spec:
       
   destination:
     server: https://kubernetes.default.svc
-    namespace: fintech-personal-prod
+    namespace: verdaccio-prod
   syncPolicy:
     automated:
       prune: true
