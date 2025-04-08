@@ -5,20 +5,17 @@ metadata:
   namespace: argocd
 spec:
   project: fintech-personal
-  source:
-    chart: verdaccio
-    repoURL: https://charts.verdaccio.org
-    targetRevision: 4.6.2  # Verifica la última versión disponible
-    helm:
-      releaseName: verdaccio-qa
-      values: |
-        # Los valores se cargan desde nuestro fichero de valores
-  # Referencia a nuestro fichero de valores personalizado
   sources:
+    - repoURL: https://charts.verdaccio.org
+      targetRevision: 4.6.2
+      chart: verdaccio
+      helm:
+        releaseName: verdaccio-qa
+      
     - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
       targetRevision: HEAD
       path: apps/verdaccio/helm-values/qa
-      ref: values
+      
   destination:
     server: https://kubernetes.default.svc
     namespace: fintech-personal-qa
