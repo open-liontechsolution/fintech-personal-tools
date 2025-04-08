@@ -3,15 +3,6 @@ kind: Application
 metadata:
   name: verdaccio-dev
   namespace: argocd
-  annotations:
-    argocd.argoproj.io/compare-options: IgnoreExtraneous
-    argocd.argoproj.io/sync-options: Prune=false
-    # Ignorar recursos de Cilium
-    argocd.argoproj.io/sync-wave: "0"
-    argocd.argoproj.io/resource-exclusions: |
-      - apiGroups: ["cilium.io"]
-        kinds: ["CiliumIdentity"]
-        clusters: ["*"]
 spec:
   project: tools
   sources:
@@ -34,3 +25,13 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+  
+  # Configuración para ignorar CiliumIdentity
+  ignoreDifferences:
+    - group: cilium.io
+      kind: CiliumIdentity
+      jqPathExpressions:
+        - ".status"
+        - ".metadata.resourceVersion"
+        - ".metadata.finalizers"
+        - ".metadata.managedFields"
