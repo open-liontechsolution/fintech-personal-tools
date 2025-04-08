@@ -7,8 +7,8 @@ spec:
   project: tools
   sources:
     - repoURL: https://mongodb.github.io/helm-charts
-      targetRevision: 1.7.0
-      chart: mongodb-community-server
+      targetRevision: 13.6.4
+      chart: mongodb
       helm:
         releaseName: mongodb-qa
       
