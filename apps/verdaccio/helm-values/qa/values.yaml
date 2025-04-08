@@ -3,6 +3,8 @@
 # Asignamos namespace específico del entorno
 fullnameOverride: "verdaccio"
 nameOverride: "verdaccio"
+# Configuración del namespace
+namespaceOverride: "fintech-personal-qa"
 
 # Número de réplicas para el entorno de QA
 replicaCount: 2

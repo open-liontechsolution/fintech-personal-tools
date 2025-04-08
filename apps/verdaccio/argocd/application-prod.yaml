@@ -8,14 +8,14 @@ spec:
   source:
     chart: verdaccio
     repoURL: https://charts.verdaccio.org
-    targetRevision: 4.2.0  # Verifica la última versión disponible
+    targetRevision: 4.6.2  # Verifica la última versión disponible
     helm:
       releaseName: verdaccio-prod
       values: |
         # Los valores se cargan desde nuestro fichero de valores
   # Referencia a nuestro fichero de valores personalizado
   sources:
-    - repoURL: https://github.com/yourusername/fintech-personal-tools.git
+    - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
       targetRevision: HEAD
       path: apps/verdaccio/helm-values/prod
       ref: values

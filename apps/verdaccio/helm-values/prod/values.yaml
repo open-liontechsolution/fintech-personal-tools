@@ -3,6 +3,8 @@
 # Asignamos namespace específico del entorno
 fullnameOverride: "verdaccio"
 nameOverride: "verdaccio"
+# Configuración del namespace
+namespaceOverride: "fintech-personal-prod"
 
 # Número de réplicas para el entorno de producción
 replicaCount: 3
