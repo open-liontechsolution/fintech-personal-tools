@@ -7,8 +7,8 @@ spec:
   project: tools
   sources:
     - repoURL: https://mongodb.github.io/helm-charts
-      targetRevision: 13.6.4
-      chart: mongodb
+      targetRevision: 0.9.0
+      chart: community-operator
       helm:
         releaseName: mongodb-prod
       
