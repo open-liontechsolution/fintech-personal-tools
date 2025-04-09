@@ -1,0 +1,48 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-mongodb-operator
+  namespace: mongodb-dev
+spec:
+  podSelector: {}  # Aplica a todos los pods en el namespace mongodb-dev
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: mongodb
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: mongodb-kubernetes-operator
+      ports:
+        - protocol: TCP
+          port: 27017  # Puerto de MongoDB
+        - protocol: TCP
+          port: 27018  # Puerto de MongoDB adicional (para configuración)
+        - protocol: TCP
+          port: 27019  # Puerto de MongoDB adicional (para configuración)
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-mongodb-operator-cilium
+  namespace: mongodb-dev
+spec:
+  endpointSelector: {}  # Aplica a todos los endpoints en el namespace mongodb-dev
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s:app.kubernetes.io/name: mongodb-kubernetes-operator
+            k8s:io.kubernetes.pod.namespace: mongodb
+      toPorts:
+        - ports:
+            - port: "27017"
+              protocol: TCP
+            - port: "27018"
+              protocol: TCP
+            - port: "27019"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: mongodb
+            k8s:app.kubernetes.io/name: mongodb-kubernetes-operator
