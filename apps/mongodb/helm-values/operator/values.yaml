@@ -16,7 +16,7 @@ operator:
   version: 0.12.0
 
   # Uncomment this line to watch all namespaces
-  watchNamespace: "mongodb-dev"
+  watchNamespace: "*"
 
   # Resources allocated to Operator Pod
   resources:
