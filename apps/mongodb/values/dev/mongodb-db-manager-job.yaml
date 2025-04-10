@@ -4,7 +4,6 @@ metadata:
   generateName: mongodb-db-manager-
   namespace: mongodb-dev
   annotations:
-    # Esta anotación le indica a ArgoCD que elimine y vuelva a crear el Job cuando se sincronice
     argocd.argoproj.io/hook: Sync
     argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
@@ -16,57 +15,9 @@ spec:
       - name: mongodb-db-manager
         image: mongo:4.4.18
         command:
-        - /bin/sh
+        - /bin/bash
         - -c
-        - |
-          echo "Esperando a que MongoDB esté listo..."
-          sleep 15
-          
-          echo "Extrayendo información del Secret..."
-          if [ -f /secrets/database ] && [ -f /secrets/username ] && [ -f /secrets/password ]; then
-            DB_NAME=$(cat /secrets/database)
-            DB_USER=$(cat /secrets/username)
-            DB_PASS=$(cat /secrets/password)
-            
-            echo "Creando usuario $DB_USER para la base de datos $DB_NAME..."
-            
-            # Detectar el nodo primario actual
-            echo "Intentando detectar el nodo primario..."
-            
-            # Conectarse al replica set completo, MongoDB dirigirá la conexión al primario
-            mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
-              --eval "var primaryHost = rs.status().members.find(m => m.state === 1).name; print('PRIMARY_HOST=' + primaryHost);" \
-              -u $MONGO_INITDB_ROOT_USERNAME \
-              -p $MONGO_INITDB_ROOT_PASSWORD \
-              --authenticationDatabase admin > /tmp/primary_detect
-            
-            if [ $? -ne 0 ]; then
-              echo "Error al detectar el nodo primario, intentando con mongodb-0..."
-              PRIMARY_HOST="mongodb-0.mongodb:27017"
-            else
-              PRIMARY_HOST=$(grep PRIMARY_HOST /tmp/primary_detect | cut -d'=' -f2)
-              if [ -z "$PRIMARY_HOST" ]; then
-                echo "No se pudo detectar el primario, intentando con mongodb-0..."
-                PRIMARY_HOST="mongodb-0.mongodb:27017"
-              else
-                echo "Nodo primario detectado: $PRIMARY_HOST"
-              fi
-            fi
-            
-            # Ejecutar en el nodo primario detectado
-            mongo --host "$PRIMARY_HOST" \
-              -u $MONGO_INITDB_ROOT_USERNAME \
-              -p $MONGO_INITDB_ROOT_PASSWORD \
-              --authenticationDatabase admin \
-              --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
-              --quiet \
-              /scripts/init-user.js
-            
-            echo "Proceso completado correctamente"
-          else
-            echo "No se encontró información completa en el Secret"
-            exit 1
-          fi
+        - /scripts/process-secrets.sh
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
@@ -79,16 +30,11 @@ spec:
               name: mongodb-secret
               key: root-password
         volumeMounts:
-        - name: secret-volume
-          mountPath: /secrets
-        - name: script-volume
+        - name: scripts-volume
           mountPath: /scripts
       volumes:
-      - name: secret-volume
-        secret:
-          secretName: data-import-db-secret
-      - name: script-volume
+      - name: scripts-volume
         configMap:
-          name: mongodb-user-manager-scripts
+          name: mongodb-db-manager
           defaultMode: 0755
       restartPolicy: Never

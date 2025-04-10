@@ -15,71 +15,9 @@ spec:
           - name: user-manager
             image: mongo:4.4.18
             command:
-            - /bin/sh
+            - /bin/bash
             - -c
-            - |
-              echo "Iniciando la sincronización de usuarios MongoDB..."
-              sleep 10  # Esperar a que MongoDB esté estable
-              
-              # Obtener los secrets gestionados por MongoDB
-              MANAGED_SECRETS=$(kubectl get secrets -n mongodb-dev -o jsonpath='{range .items[?(@.metadata.annotations.mongodb\.io/managed=="true")]}{.metadata.name}{"\n"}{end}')
-              
-              if [ -z "$MANAGED_SECRETS" ]; then
-                echo "No hay secrets gestionados por MongoDB para procesar"
-                exit 0
-              fi
-              
-              # Detectar el nodo primario actual
-              echo "Intentando detectar el nodo primario..."
-              
-              # Conectarse al replica set completo, MongoDB dirigirá la conexión al primario
-              mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
-                --eval "var primaryHost = rs.status().members.find(m => m.state === 1).name; print('PRIMARY_HOST=' + primaryHost);" \
-                -u $MONGO_INITDB_ROOT_USERNAME \
-                -p $MONGO_INITDB_ROOT_PASSWORD \
-                --authenticationDatabase admin > /tmp/primary_detect
-              
-              if [ $? -ne 0 ]; then
-                echo "Error al detectar el nodo primario, intentando con mongodb-0..."
-                PRIMARY_HOST="mongodb-0.mongodb:27017"
-              else
-                PRIMARY_HOST=$(grep PRIMARY_HOST /tmp/primary_detect | cut -d'=' -f2)
-                if [ -z "$PRIMARY_HOST" ]; then
-                  echo "No se pudo detectar el primario, intentando con mongodb-0..."
-                  PRIMARY_HOST="mongodb-0.mongodb:27017"
-                else
-                  echo "Nodo primario detectado: $PRIMARY_HOST"
-                fi
-              fi
-              
-              for SECRET_NAME in $MANAGED_SECRETS; do
-                echo "Procesando secret: $SECRET_NAME"
-                
-                # Extraer y decodificar datos del secret
-                DB_NAME=$(kubectl get secret $SECRET_NAME -n mongodb-dev -o jsonpath='{.data.database}' | base64 --decode)
-                DB_USER=$(kubectl get secret $SECRET_NAME -n mongodb-dev -o jsonpath='{.data.username}' | base64 --decode)
-                DB_PASS=$(kubectl get secret $SECRET_NAME -n mongodb-dev -o jsonpath='{.data.password}' | base64 --decode)
-                
-                if [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ]; then
-                  echo "Datos incompletos en el secret $SECRET_NAME, se omite"
-                  continue
-                fi
-                
-                echo "Configurando base de datos $DB_NAME con usuario $DB_USER..."
-                
-                # Conectarse al nodo primario detectado
-                mongo --host "$PRIMARY_HOST" \
-                  -u $MONGO_INITDB_ROOT_USERNAME \
-                  -p $MONGO_INITDB_ROOT_PASSWORD \
-                  --authenticationDatabase admin \
-                  --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
-                  --quiet \
-                  /scripts/init-user.js
-                
-                echo "Procesamiento completado para $SECRET_NAME"
-              done
-              
-              echo "Sincronización de usuarios MongoDB completada"
+            - /scripts/process-secrets.sh
             env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -92,11 +30,11 @@ spec:
                   name: mongodb-secret
                   key: root-password
             volumeMounts:
-            - name: script-volume
+            - name: scripts-volume
               mountPath: /scripts
           volumes:
-          - name: script-volume
+          - name: scripts-volume
             configMap:
-              name: mongodb-user-manager-scripts
+              name: mongodb-db-manager
               defaultMode: 0755
           restartPolicy: OnFailure
