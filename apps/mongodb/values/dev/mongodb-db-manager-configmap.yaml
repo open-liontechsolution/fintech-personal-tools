@@ -35,19 +35,17 @@ data:
     }
     
     // Las variables de entorno no están disponibles directamente en el shell de MongoDB
-    // Esta variable MONGODB_DATABASES debe ser definida como variable global al iniciar el script
+    // Esta variable MONGODB_DATABASES debe ser definida como variable global
+    // Alternativamente, podemos cargar los datos desde un archivo usando load()
     var databases = [];
     
+    // Intentar cargar la configuración desde un archivo
     try {
-      // Intentar acceder a la variable MONGODB_DATABASES que debe ser definida externamente
-      if (typeof MONGODB_DATABASES !== 'undefined') {
-        databases = JSON.parse(MONGODB_DATABASES);
-        print("Bases de datos a procesar: " + MONGODB_DATABASES);
-      } else {
-        print("ADVERTENCIA: Variable MONGODB_DATABASES no definida. No hay bases de datos para procesar.");
-      }
+      load("/tmp/mongodb-databases.js");
+      print("Bases de datos a procesar: " + JSON.stringify(databases));
     } catch (err) {
-      print("Error al parsear la lista de bases de datos: " + err);
+      print("Error al cargar el archivo de configuración: " + err);
+      print("ADVERTENCIA: No hay bases de datos para procesar.");
       quit(1);
     }
     
@@ -133,17 +131,31 @@ data:
       
       echo "Encontrada información para la base de datos: $DB_NAME"
       
-      # Escapar correctamente las comillas para evitar problemas de JSON
-      # Crear el JSON correcto para el script de MongoDB
-      DATABASES='[{"name":"'$DB_NAME'","username":"'$DB_USER'","password":"'$DB_PASS'"}]'
+      # Crear un archivo temporal con la configuración de las bases de datos
+      # Este enfoque evita problemas de escape de comillas al pasar JSON como argumento
+      echo "// Archivo temporal generado automáticamente
+var databases = [
+  {
+    name: '$DB_NAME',
+    username: '$DB_USER',
+    password: '$DB_PASS',
+    roles: [{ role: 'readWrite', db: '$DB_NAME' }]
+  }
+];" > /tmp/mongodb-databases.js
+      
+      # Para debug
+      echo "Contenido del archivo de configuración:"
+      cat /tmp/mongodb-databases.js
+      
     else
       echo "No se encontraron los archivos esperados en /secrets/"
       echo "Archivos presentes:"
       find /secrets -type f | sort
+      
+      # Crear un archivo vacío para evitar errores
+      echo "// Archivo temporal generado automáticamente
+var databases = [];" > /tmp/mongodb-databases.js
     fi
-    
-    # No es necesario exportar como variable de entorno, ya que pasaremos directamente como variable de MongoDB
-    echo "Bases de datos a procesar: $DATABASES"
     
     # Verificar si MongoDB está configurado con autenticación
     echo "Verificando configuración de seguridad de MongoDB..."
@@ -166,9 +178,8 @@ data:
       
       if [ $? -eq 0 ]; then
         echo " Autenticación exitosa con credenciales de secret"
-        # Pasamos la variable MONGODB_DATABASES como variable global JavaScript
-        # Usamos comillas simples para evitar problemas de escape
-        MONGO_CMD="mongo --host mongodb-0.mongodb -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'var MONGODB_DATABASES=JSON.parse(\"'\"$DATABASES\"'\")' /scripts/user-management.js"
+        # Usar el archivo temporal para evitar problemas de escape
+        MONGO_CMD="mongo --host mongodb-0.mongodb -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin /scripts/user-management.js"
       else
         echo " Autenticación fallida. No se puede continuar cuando la autenticación está habilitada pero las credenciales no funcionan."
         echo "Por favor verifica que las credenciales en el secret mongodb-secret son correctas."
@@ -190,23 +201,21 @@ data:
         fi
       fi
       
-      # Usar MongoDB sin autenticación, pasando la variable MONGODB_DATABASES como variable global JavaScript
-      # Usamos comillas simples para evitar problemas de escape en el --eval
-      MONGO_CMD="mongo --host mongodb-0.mongodb --eval 'var MONGODB_DATABASES=JSON.parse(\"'\"$DATABASES\"'\")' /scripts/user-management.js"
+      # Usar MongoDB sin autenticación
+      MONGO_CMD="mongo --host mongodb-0.mongodb /scripts/user-management.js"
     fi
     
     # Ejecutar el script de gestión de usuarios
-    if [ "$DATABASES" != "[]" ]; then
-      echo "Ejecutando script de gestión de usuarios..."
-      echo "Comando a ejecutar: $MONGO_CMD"
-      eval "$MONGO_CMD"
-      
-      if [ $? -eq 0 ]; then
-        echo " Procesamiento de usuarios completado con éxito."
-      else
-        echo " El script de gestión de usuarios falló con código $?"
-        exit 1
-      fi
+    echo "Ejecutando script de gestión de usuarios..."
+    echo "Comando a ejecutar: $MONGO_CMD"
+    eval "$MONGO_CMD"
+    
+    # Limpiar el archivo temporal
+    rm -f /tmp/mongodb-databases.js
+    
+    if [ $? -eq 0 ]; then
+      echo " Procesamiento de usuarios completado con éxito."
     else
-      echo "No hay bases de datos para procesar"
+      echo " El script de gestión de usuarios falló con código $?"
+      exit 1
     fi
