@@ -53,44 +53,51 @@ spec:
               export MONGODB_DATABASES="$DATABASES"
               echo "Bases de datos a procesar: $MONGODB_DATABASES"
               
-              # Verificar credenciales root
-              echo "Verificando credenciales de root..."
-              echo "Usuario root: $MONGO_INITDB_ROOT_USERNAME"
+              # Verificar si MongoDB está configurado con autenticación
+              echo "Verificando configuración de seguridad de MongoDB..."
+              AUTH_ENABLED=$(mongo --host mongodb-0.mongodb --eval "try { db.serverCmdLineOpts().parsed.security.authorization || 'disabled' } catch(e) { 'unknown' }" --quiet)
               
-              # Probar primero sin autenticación para comprobar el estado de MongoDB
-              echo "Probando conexión directa sin autenticación..."
-              mongo --host mongodb-0.mongodb --eval "try { rs.status() } catch(err) { print('Error: ' + err.message) }" --quiet
+              echo "Estado de la autenticación en MongoDB: $AUTH_ENABLED"
               
-              # Intentar autenticar con diferentes variantes de sintaxis
-              echo "Intentando autenticar con MongoDB (variante 1)..."
-              mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval "printjson(db.adminCommand('ping'))" --quiet
+              # Verificar si el usuario admin ya existe
+              echo "Verificando si existe el usuario admin..."
+              ADMIN_EXISTS=$(mongo --host mongodb-0.mongodb --eval "try { db = db.getSiblingDB('admin'); db.system.users.find({user:'admin'}).count() > 0 } catch(e) { false }" --quiet)
               
-              if [ $? -ne 0 ]; then
-                echo "Primer intento falló, probando variante 2 (con comillas)..."
+              echo "¿Existe el usuario admin?: $ADMIN_EXISTS"
+              
+              # Definir comando de MongoDB basado en la configuración
+              if [ "$AUTH_ENABLED" == "enabled" ]; then
+                echo "MongoDB tiene autenticación habilitada, intentando autenticar..."
+                
+                # Intentar autenticar con diferentes variantes
                 mongo --host mongodb-0.mongodb -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "printjson(db.adminCommand('ping'))" --quiet
                 
-                if [ $? -ne 0 ]; then
-                  echo "También falló variante 2, probando variante 3 (URI)..."
-                  mongo "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb-0.mongodb:27017/admin" --eval "printjson(db.adminCommand('ping'))" --quiet
-                  
-                  if [ $? -ne 0 ]; then
-                    echo "❌ Todos los intentos de autenticación fallaron"
-                    echo "Por favor, verifica que:"
-                    echo "1. Las credenciales en el secreto 'mongodb-secret' son correctas"
-                    echo "2. MongoDB está configurado para usar autenticación"
-                    echo "3. El usuario root existe en la base de datos admin"
-                    exit 1
-                  else
-                    MONGO_AUTH_CMD="mongo \"mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb-0.mongodb:27017/admin\""
-                    echo "✅ Autenticación exitosa con variante 3 (URI)"
-                  fi
-                else
+                if [ $? -eq 0 ]; then
+                  echo "✅ Autenticación exitosa con credenciales de secret"
                   MONGO_AUTH_CMD="mongo --host mongodb-0.mongodb -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin"
-                  echo "✅ Autenticación exitosa con variante 2 (con comillas)"
+                else
+                  echo "❌ Autenticación fallida. No se puede continuar cuando la autenticación está habilitada pero las credenciales no funcionan."
+                  echo "Por favor verifica que las credenciales en el secret mongodb-secret son correctas."
+                  exit 1
                 fi
               else
-                MONGO_AUTH_CMD="mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin"
-                echo "✅ Autenticación exitosa con variante 1"
+                echo "⚠️ MongoDB está ejecutándose sin autenticación habilitada, continuando sin credenciales."
+                echo "Es altamente recomendable habilitar la autenticación en entornos de producción."
+                
+                # Si MongoDB no tiene autenticación, creamos el usuario admin si no existe
+                if [ "$ADMIN_EXISTS" == "false" ]; then
+                  echo "Creando usuario admin ya que no existe..."
+                  mongo --host mongodb-0.mongodb admin --eval "db.createUser({user: '$MONGO_INITDB_ROOT_USERNAME', pwd: '$MONGO_INITDB_ROOT_PASSWORD', roles: ['root']})"
+                  
+                  if [ $? -eq 0 ]; then
+                    echo "✅ Usuario admin creado exitosamente"
+                  else
+                    echo "❌ No se pudo crear el usuario admin"
+                  fi
+                fi
+                
+                # Usar MongoDB sin autenticación
+                MONGO_AUTH_CMD="mongo --host mongodb-0.mongodb"
               fi
               
               # Ejecutar el script de gestión de usuarios
