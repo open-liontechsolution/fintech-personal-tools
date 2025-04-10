@@ -29,6 +29,29 @@ spec:
                 exit 0
               fi
               
+              # Detectar el nodo primario actual
+              echo "Intentando detectar el nodo primario..."
+              
+              # Conectarse al replica set completo, MongoDB dirigirá la conexión al primario
+              mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
+                --eval "var primaryHost = rs.status().members.find(m => m.state === 1).name; print('PRIMARY_HOST=' + primaryHost);" \
+                -u $MONGO_INITDB_ROOT_USERNAME \
+                -p $MONGO_INITDB_ROOT_PASSWORD \
+                --authenticationDatabase admin > /tmp/primary_detect
+              
+              if [ $? -ne 0 ]; then
+                echo "Error al detectar el nodo primario, intentando con mongodb-0..."
+                PRIMARY_HOST="mongodb-0.mongodb:27017"
+              else
+                PRIMARY_HOST=$(grep PRIMARY_HOST /tmp/primary_detect | cut -d'=' -f2)
+                if [ -z "$PRIMARY_HOST" ]; then
+                  echo "No se pudo detectar el primario, intentando con mongodb-0..."
+                  PRIMARY_HOST="mongodb-0.mongodb:27017"
+                else
+                  echo "Nodo primario detectado: $PRIMARY_HOST"
+                fi
+              fi
+              
               for SECRET_NAME in $MANAGED_SECRETS; do
                 echo "Procesando secret: $SECRET_NAME"
                 
@@ -44,12 +67,13 @@ spec:
                 
                 echo "Configurando base de datos $DB_NAME con usuario $DB_USER..."
                 
-                # Conectarse al replica set completo para asegurar que usamos el primario
-                mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
+                # Conectarse al nodo primario detectado
+                mongo --host "$PRIMARY_HOST" \
                   -u $MONGO_INITDB_ROOT_USERNAME \
                   -p $MONGO_INITDB_ROOT_PASSWORD \
                   --authenticationDatabase admin \
                   --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
+                  --quiet \
                   /scripts/init-user.js
                 
                 echo "Procesamiento completado para $SECRET_NAME"

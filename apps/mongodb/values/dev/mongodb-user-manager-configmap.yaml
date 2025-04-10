@@ -16,51 +16,55 @@ data:
     
     print("Trabajando con base de datos: " + DB_NAME + ", usuario: " + DB_USER);
     
-    // Conectar a la base de datos y asegurar que estamos en el primario
-    var rs = rs.status();
-    var primaryMember = null;
-    
-    // Encontrar el nodo primario en el replica set
-    for (var i = 0; i < rs.members.length; i++) {
-      if (rs.members[i].state === 1) {  // 1 = PRIMARY
-        primaryMember = rs.members[i];
-        break;
-      }
-    }
-    
-    if (!primaryMember) {
-      print("ERROR: No se pudo encontrar el nodo primario en el replica set");
-      quit(1);
-    }
-    
-    print("Nodo primario encontrado: " + primaryMember.name);
-    
     // Conectar a la base de datos
     var db = db.getSiblingDB(DB_NAME);
     
-    // Verificar si el usuario ya existe
-    var userExists = null;
     try {
-      userExists = db.getUser(DB_USER);
+      // Verificar primero si estamos en el primario
+      if (!db.isMaster().ismaster) {
+        print("WARNING: Este nodo no es el primario. Intentando forzar escritura con writeConcern majority.");
+      }
+      
+      // Verificar si el usuario ya existe
+      var userExists = db.getUser(DB_USER);
+      
+      if (userExists) {
+        print("El usuario " + DB_USER + " ya existe en " + DB_NAME + ", actualizando contraseña...");
+        db.changeUserPassword(DB_USER, DB_PASS);
+        print("Contraseña actualizada");
+      } else {
+        print("Creando nuevo usuario " + DB_USER + " en " + DB_NAME + "...");
+        db.createUser({
+          user: DB_USER,
+          pwd: DB_PASS,
+          roles: [{ role: "readWrite", db: DB_NAME }]
+        });
+        print("Usuario creado exitosamente");
+      }
+      
+      print("Configuración completada para " + DB_NAME);
     } catch (e) {
-      print("Creando nuevo usuario...");
+      print("Error durante la operación: " + e);
+      if (e.message && e.message.includes("not master")) {
+        print("ERROR: No pudimos escribir porque este nodo no es el primario.");
+        print("Por favor, intenta conectarte directamente al primario o usa una cadena de conexión del replica set.");
+        quit(1);
+      }
+      
+      // Intento final de escritura si no es un error de "not master"
+      try {
+        print("Intentando creación de usuario como último recurso...");
+        db.createUser({
+          user: DB_USER,
+          pwd: DB_PASS,
+          roles: [{ role: "readWrite", db: DB_NAME }]
+        });
+        print("Intento de creación forzada completado");
+      } catch (finalError) {
+        print("Error final: " + finalError);
+        quit(1);
+      }
     }
-    
-    if (userExists) {
-      print("El usuario " + DB_USER + " ya existe en " + DB_NAME + ", actualizando contraseña...");
-      db.changeUserPassword(DB_USER, DB_PASS);
-      print("Contraseña actualizada");
-    } else {
-      print("Creando nuevo usuario " + DB_USER + " en " + DB_NAME + "...");
-      db.createUser({
-        user: DB_USER,
-        pwd: DB_PASS,
-        roles: [{ role: "readWrite", db: DB_NAME }]
-      });
-      print("Usuario creado exitosamente");
-    }
-    
-    print("Configuración completada para " + DB_NAME);
   
   setup.sh: |
     #!/bin/sh
@@ -77,13 +81,36 @@ data:
       
       echo "Creando usuario $DB_USER para la base de datos $DB_NAME..."
       
-      # Intentar conectarse al replicaset, no solo a un nodo
-      # El parámetro --host especifica el nombre del replicaset y los nodos
+      # Detectar el nodo primario actual
+      echo "Intentando detectar el nodo primario..."
+      
+      # Conectarse al replica set completo, MongoDB dirigirá la conexión al primario
       mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
+        --eval "var primaryHost = rs.status().members.find(m => m.state === 1).name; print('PRIMARY_HOST=' + primaryHost);" \
+        -u $MONGO_INITDB_ROOT_USERNAME \
+        -p $MONGO_INITDB_ROOT_PASSWORD \
+        --authenticationDatabase admin > /tmp/primary_detect
+      
+      if [ $? -ne 0 ]; then
+        echo "Error al detectar el nodo primario, intentando con mongodb-0..."
+        PRIMARY_HOST="mongodb-0.mongodb:27017"
+      else
+        PRIMARY_HOST=$(grep PRIMARY_HOST /tmp/primary_detect | cut -d'=' -f2)
+        if [ -z "$PRIMARY_HOST" ]; then
+          echo "No se pudo detectar el primario, intentando con mongodb-0..."
+          PRIMARY_HOST="mongodb-0.mongodb:27017"
+        else
+          echo "Nodo primario detectado: $PRIMARY_HOST"
+        fi
+      fi
+      
+      # Ejecutar en el nodo primario detectado
+      mongo --host "$PRIMARY_HOST" \
         -u $MONGO_INITDB_ROOT_USERNAME \
         -p $MONGO_INITDB_ROOT_PASSWORD \
         --authenticationDatabase admin \
         --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
+        --quiet \
         /scripts/init-user.js
       
       echo "Proceso completado correctamente"
