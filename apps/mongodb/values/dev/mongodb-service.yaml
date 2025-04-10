@@ -14,3 +14,21 @@ spec:
   selector:
     app: mongodb
   clusterIP: None  # Headless service para StatefulSet
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb
+  namespace: mongodb-dev
+  labels:
+    app: mongodb
+spec:
+  ports:
+  - port: 27017
+    targetPort: 27017
+    protocol: TCP
+    name: mongodb
+  selector:
+    app: mongodb
+  type: LoadBalancer
+  loadBalancerIP: 192.168.2.33

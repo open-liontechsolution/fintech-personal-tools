@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-db-manager
+  namespace: mongodb-dev
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      serviceAccountName: mongodb-manager-sa
+      containers:
+      - name: mongodb-manager
+        image: bitnami/kubectl:latest
+        command: ["/bin/bash", "/scripts/process-secrets.sh"]
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: root-username
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: root-password
+        volumeMounts:
+        - name: manager-scripts
+          mountPath: /scripts
+      volumes:
+      - name: manager-scripts
+        configMap:
+          name: mongodb-db-manager
+          defaultMode: 0700
+      restartPolicy: OnFailure
