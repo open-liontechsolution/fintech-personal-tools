@@ -27,24 +27,27 @@ spec:
             
             echo "Creando usuario $DB_USER para la base de datos $DB_NAME..."
             
-            # Crear usuario en MongoDB
-            mongo --host mongodb-0.mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin <<EOF
-            use $DB_NAME;
+            # Crear usuario en MongoDB utilizando un script de mongo
+            cat > /tmp/create_user.js << EOL
+            use ${DB_NAME};
             
-            if (db.getUser("$DB_USER")) {
-              print("El usuario $DB_USER ya existe, actualizando contraseña...");
-              db.changeUserPassword("$DB_USER", "$DB_PASS");
+            if (db.getUser("${DB_USER}")) {
+              print("El usuario ${DB_USER} ya existe, actualizando contraseña...");
+              db.changeUserPassword("${DB_USER}", "${DB_PASS}");
             } else {
-              print("Creando nuevo usuario $DB_USER...");
+              print("Creando nuevo usuario ${DB_USER}...");
               db.createUser({
-                user: "$DB_USER",
-                pwd: "$DB_PASS",
-                roles: [{ role: "readWrite", db: "$DB_NAME" }]
+                user: "${DB_USER}",
+                pwd: "${DB_PASS}",
+                roles: [{ role: "readWrite", db: "${DB_NAME}" }]
               });
             }
             
-            print("Configuración completada para $DB_NAME");
-            EOF
+            print("Configuración completada para ${DB_NAME}");
+            EOL
+            
+            # Ejecutar el script
+            mongo --host mongodb-0.mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /tmp/create_user.js
             
             echo "Proceso completado correctamente"
           else
