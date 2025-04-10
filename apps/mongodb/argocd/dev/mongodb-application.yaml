@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mongodb-dev
+  namespace: argocd
+spec:
+  project: tools
+  source:
+    repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
+    targetRevision: HEAD
+    path: apps/mongodb/values/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mongodb-dev
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
