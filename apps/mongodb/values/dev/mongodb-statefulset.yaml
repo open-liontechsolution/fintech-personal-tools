@@ -40,6 +40,8 @@ spec:
         - "--replSet"
         - "rs0"
         - "--auth"
+        - "--keyFile"
+        - "/etc/mongodb/keyfile/mongodb-keyfile"
         resources:
           limits:
             cpu: 1000m
@@ -50,6 +52,9 @@ spec:
         volumeMounts:
         - name: mongodb-data
           mountPath: /data/db
+        - name: mongodb-keyfile
+          mountPath: /etc/mongodb/keyfile
+          readOnly: true
         readinessProbe:
           exec:
             command:
@@ -59,6 +64,11 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 5
           periodSeconds: 10
+      volumes:
+      - name: mongodb-keyfile
+        secret:
+          secretName: mongodb-keyfile
+          defaultMode: 0400
       terminationGracePeriodSeconds: 30
   volumeClaimTemplates:
   - metadata:
