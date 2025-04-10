@@ -5,21 +5,29 @@ metadata:
   namespace: mongodb-dev
 data:
   init-replica.js: |
-    rs.initiate(
-      {
-        _id: "rs0",
-        members: [
-          { _id: 0, host: "mongodb-0.mongodb:27017", priority: 10 },
-          { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
-          { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
-        ]
+    // Inicializar el replica set con una configuración básica
+    try {
+      rs.initiate(
+        {
+          _id: "rs0",
+          members: [
+            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 10 },
+            { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
+            { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
+          ]
+        }
+      );
+      
+      print("Configuración del replica set enviada correctamente");
+    } catch (err) {
+      print("Error durante la inicialización del replica set: " + err);
+      // Si ya está inicializado, no es un error fatal
+      if (err.message && err.message.includes("already initialized")) {
+        print("El replica set ya estaba inicializado.");
+      } else {
+        quit(1);
       }
-    );
-
-    // Esperar a que se establezca la replicación
-    while (!rs.isMaster().ismaster) {
-      print("Esperando a que este nodo se convierta en maestro...");
-      sleep(1000);
     }
     
-    print("Replica set configurado correctamente. Este nodo es ahora el primario.");
+    // Salir inmediatamente - el job manejará la espera y verificación
+    print("Script de inicialización completado");
