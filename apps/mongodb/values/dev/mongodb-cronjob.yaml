@@ -10,7 +10,7 @@ spec:
     spec:
       template:
         spec:
-          serviceAccountName: mongodb-manager-sa
+          # serviceAccountName: mongodb-manager-sa
           containers:
           - name: user-manager
             image: mongo:4.4.18
