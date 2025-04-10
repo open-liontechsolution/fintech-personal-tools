@@ -29,32 +29,26 @@ spec:
           # Inicializar array de bases de datos
           DATABASES="[]"
           
-          # Buscar todos los secretos montados que tienen la anotación mongodb.io/managed=true
-          echo "Buscando secretos MongoDB en /secrets..."
+          # Debug: Mostrar contenido del directorio de secretos
+          echo "Contenido del directorio /secrets:"
+          ls -la /secrets/
           
-          for SECRET_DIR in /secrets/*/; do
-            if [ -d "$SECRET_DIR" ]; then
-              echo "Procesando secreto en: $SECRET_DIR"
-              
-              # Verificar que existan los archivos necesarios
-              if [ -f "${SECRET_DIR}database" ] && [ -f "${SECRET_DIR}username" ] && [ -f "${SECRET_DIR}password" ]; then
-                DB_NAME=$(cat "${SECRET_DIR}database")
-                DB_USER=$(cat "${SECRET_DIR}username")
-                DB_PASS=$(cat "${SECRET_DIR}password")
-                
-                echo "Encontrada información para la base de datos: $DB_NAME"
-                
-                # Añadir a nuestro array de bases de datos
-                if [ "$DATABASES" == "[]" ]; then
-                  DATABASES="[{\"name\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASS\"}]"
-                else
-                  DATABASES=$(echo $DATABASES | sed 's/\]$/,{"name":"'$DB_NAME'","username":"'$DB_USER'","password":"'$DB_PASS'"}]/')
-                fi
-              else
-                echo "Error: Secreto incompleto, faltan campos requeridos"
-              fi
-            fi
-          done
+          # En volúmenes proyectados, los secretos se montan directamente
+          # No hay subdirectorios como se esperaba
+          if [ -f "/secrets/database" ] && [ -f "/secrets/username" ] && [ -f "/secrets/password" ]; then
+            DB_NAME=$(cat "/secrets/database")
+            DB_USER=$(cat "/secrets/username")
+            DB_PASS=$(cat "/secrets/password")
+            
+            echo "Encontrada información para la base de datos: $DB_NAME"
+            
+            # Crear el JSON para el script de MongoDB
+            DATABASES="[{\"name\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASS\"}]"
+          else
+            echo "No se encontraron los archivos esperados en /secrets/"
+            echo "Archivos presentes:"
+            find /secrets -type f | sort
+          fi
           
           # Exportar la lista de bases de datos como variable de entorno
           export MONGODB_DATABASES="$DATABASES"
