@@ -16,6 +16,23 @@ spec:
       annotations:
         checksum/config: "${RANDOM}"
     spec:
+      # Contenedor de inicialización para ejecutar el script de limpieza
+      initContainers:
+      - name: init-mongodb-recovery
+        image: mongo:4.4.18
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          # Copiar y ejecutar el script de limpieza
+          echo "Iniciando proceso de recuperación automática..."
+          cp /configmap/startup-script.sh /tmp/startup-script.sh
+          chmod +x /tmp/startup-script.sh
+          /tmp/startup-script.sh
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-init
+          mountPath: /configmap
       containers:
       - name: mongodb
         image: mongo:4.4.18
@@ -50,6 +67,22 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 5
           periodSeconds: 10
+        # Ejecutar script de inicialización del replica set después de que MongoDB arranque
+        lifecycle:
+          postStart:
+            exec:
+              command: ["/bin/bash", "-c"]
+              args:
+              - |
+                # Esperar a que MongoDB se inicie completamente
+                sleep 15
+                # Ejecutar script de inicialización del replica set
+                mongo /configmap/init-replica.js
+      volumes:
+      - name: mongodb-init
+        configMap:
+          name: mongodb-init
+          defaultMode: 0755
       terminationGracePeriodSeconds: 30
   volumeClaimTemplates:
   - metadata:
