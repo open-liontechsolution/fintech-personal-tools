@@ -195,7 +195,7 @@ data:
         
         // Crear una nueva configuración basada en la actual
         var newMembers = [
-          { _id: 0, host: "mongodb-0.mongodb:27017", priority: 10 },
+          { _id: 0, host: "mongodb-0.mongodb:27017", priority: 2 },
           { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
           { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
         ];
@@ -231,7 +231,7 @@ data:
         var initConfig = {
           _id: "rs0",
           members: [
-            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 10 },
+            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 2 },
             { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
             { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
           ]
@@ -270,3 +270,66 @@ data:
     }
     
     print("Proceso de configuración completado. El cluster puede requerir más tiempo para estabilizarse.");
+  startup-script.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Ejecutando script de auto-recuperación para MongoDB ReplicaSet..."
+    
+    # Función para detectar si hay archivos corruptos
+    check_corruption() {
+      local corrupted=0
+      
+      # Verificar si existen archivos lock que puedan estar causando problemas
+      if [ -f /data/db/mongod.lock ]; then
+        echo "⚠️ Encontrado archivo de bloqueo mongod.lock - posible cierre incorrecto"
+        corrupted=1
+      fi
+      
+      # Verificar si local.0 y local.ns existen pero están en estado inconsistente
+      if [ -f /data/db/local.0 ] && [ -f /data/db/local.ns ]; then
+        echo "Verificando integridad de archivos de ReplicaSet..."
+        
+        # Si el tamaño es 0 o muy pequeño para archivos críticos, podría indicar corrupción
+        if [ "$(stat -c%s /data/db/local.0)" -lt 1024 ] || [ "$(stat -c%s /data/db/local.ns)" -lt 1024 ]; then
+          echo "⚠️ Archivos de base de datos local posiblemente corruptos (tamaño anormal)"
+          corrupted=1
+        fi
+      fi
+      
+      # Buscar archivos journal incompletos
+      if find /data/db/journal -name "*.incomplete" 2>/dev/null | grep -q .; then
+        echo "⚠️ Encontrados archivos journal incompletos"
+        corrupted=1
+      fi
+      
+      return $corrupted
+    }
+    
+    # Función para limpiar archivos corruptos
+    clean_corruption() {
+      echo "🧹 Limpiando archivos de configuración corruptos del ReplicaSet..."
+      
+      # Eliminar archivos de configuración locales que afectan al replicaset
+      rm -f /data/db/mongod.lock /data/db/WiredTiger.lock 2>/dev/null || true
+      
+      # Si la corrupción es seria, eliminar archivos de replica set
+      # Esto es drástico pero efectivo para casos recurrentes
+      hostname=$(hostname)
+      if [[ "$hostname" == *"mongodb-0"* ]]; then
+        echo "Este es el nodo primario (mongodb-0). Eliminando archivos de ReplicaSet para reinicialización limpia..."
+        rm -f /data/db/local.0 /data/db/local.ns /data/db/replset* 2>/dev/null || true
+      fi
+      
+      echo "Limpieza completada. MongoDB iniciará con configuración limpia."
+    }
+    
+    # Comprobar si hay corrupción y limpiar si es necesario
+    if check_corruption; then
+      echo "📛 Detectada posible corrupción en archivos de MongoDB."
+      clean_corruption
+    else
+      echo "✅ No se detectaron problemas con los archivos de configuración."
+    fi
+    
+    echo "Continuando con el inicio normal de MongoDB..."
