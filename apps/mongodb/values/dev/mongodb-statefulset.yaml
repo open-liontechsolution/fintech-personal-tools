@@ -19,29 +19,18 @@ spec:
       containers:
       - name: mongodb
         image: mongo:4.4.18
-        ports:
-        - containerPort: 27017
-          name: mongodb
-        env:
-        - name: MONGO_INITDB_ROOT_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: root-username
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: root-password
-        - name: REPLICA_SET_NAME
-          value: "rs0"
+        command:
+        - mongod
         args:
         - "--bind_ip_all"
         - "--replSet"
         - "rs0"
-        - "--auth"
-        - "--keyFile"
-        - "/etc/mongodb/keyfile/mongodb-keyfile"
+        ports:
+        - containerPort: 27017
+          name: mongodb
+        env:
+        - name: REPLICA_SET_NAME
+          value: "rs0"
         resources:
           limits:
             cpu: 1000m
@@ -52,9 +41,6 @@ spec:
         volumeMounts:
         - name: mongodb-data
           mountPath: /data/db
-        - name: mongodb-keyfile
-          mountPath: /etc/mongodb/keyfile
-          readOnly: true
         readinessProbe:
           exec:
             command:
@@ -64,11 +50,6 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 5
           periodSeconds: 10
-      volumes:
-      - name: mongodb-keyfile
-        secret:
-          secretName: mongodb-keyfile
-          defaultMode: 0400
       terminationGracePeriodSeconds: 30
   volumeClaimTemplates:
   - metadata:
