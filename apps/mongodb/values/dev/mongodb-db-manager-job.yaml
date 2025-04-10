@@ -1,8 +1,11 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mongodb-db-manager
+  generateName: mongodb-db-manager-
   namespace: mongodb-dev
+  annotations:
+    argocd.argoproj.io/hook: Sync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
 spec:
   ttlSecondsAfterFinished: 300
   template:
