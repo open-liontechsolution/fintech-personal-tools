@@ -15,7 +15,7 @@ spec:
           - name: user-manager
             image: mongo:4.4.18
             command:
-            - /bin/bash
+            - /bin/sh
             - -c
             - |
               echo "Iniciando la sincronización de usuarios MongoDB..."
@@ -44,27 +44,15 @@ spec:
                 
                 echo "Configurando base de datos $DB_NAME con usuario $DB_USER..."
                 
-                # Crear script temporal para la gestión de usuarios
-                cat > /tmp/create_user.js << EOL
-                use ${DB_NAME};
+                # Exportar variables para el script de JS
+                export DB_NAME DB_USER DB_PASS
                 
-                if (db.getUser("${DB_USER}")) {
-                  print("El usuario ${DB_USER} ya existe, actualizando contraseña...");
-                  db.changeUserPassword("${DB_USER}", "${DB_PASS}");
-                } else {
-                  print("Creando nuevo usuario ${DB_USER}...");
-                  db.createUser({
-                    user: "${DB_USER}",
-                    pwd: "${DB_PASS}",
-                    roles: [{ role: "readWrite", db: "${DB_NAME}" }]
-                  });
-                }
-                
-                print("Configuración completada para ${DB_NAME}");
-                EOL
-                
-                # Ejecutar el script de MongoDB
-                mongo --host mongodb-0.mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /tmp/create_user.js
+                # Ejecutar script de JavaScript para MongoDB
+                mongo --host mongodb-0.mongodb:27017 \
+                  -u $MONGO_INITDB_ROOT_USERNAME \
+                  -p $MONGO_INITDB_ROOT_PASSWORD \
+                  --authenticationDatabase admin \
+                  /scripts/init-user.js
                 
                 echo "Procesamiento completado para $SECRET_NAME"
               done
@@ -81,4 +69,12 @@ spec:
                 secretKeyRef:
                   name: mongodb-secret
                   key: root-password
+            volumeMounts:
+            - name: script-volume
+              mountPath: /scripts
+          volumes:
+          - name: script-volume
+            configMap:
+              name: mongodb-user-manager-scripts
+              defaultMode: 0755
           restartPolicy: OnFailure

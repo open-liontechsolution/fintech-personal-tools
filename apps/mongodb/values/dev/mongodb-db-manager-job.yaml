@@ -15,47 +15,8 @@ spec:
       - name: setup-users
         image: mongo:4.4.18
         command:
-        - /bin/bash
-        - -c
-        - |
-          echo "Esperando a que MongoDB esté listo..."
-          sleep 15
-          
-          echo "Extrayendo información del Secret..."
-          # Verificar que el secret existe
-          if [ -f /secrets/database ] && [ -f /secrets/username ] && [ -f /secrets/password ]; then
-            DB_NAME=$(cat /secrets/database)
-            DB_USER=$(cat /secrets/username)
-            DB_PASS=$(cat /secrets/password)
-            
-            echo "Creando usuario $DB_USER para la base de datos $DB_NAME..."
-            
-            # Crear usuario en MongoDB utilizando un script de mongo
-            cat > /tmp/create_user.js << EOL
-            use ${DB_NAME};
-            
-            if (db.getUser("${DB_USER}")) {
-              print("El usuario ${DB_USER} ya existe, actualizando contraseña...");
-              db.changeUserPassword("${DB_USER}", "${DB_PASS}");
-            } else {
-              print("Creando nuevo usuario ${DB_USER}...");
-              db.createUser({
-                user: "${DB_USER}",
-                pwd: "${DB_PASS}",
-                roles: [{ role: "readWrite", db: "${DB_NAME}" }]
-              });
-            }
-            
-            print("Configuración completada para ${DB_NAME}");
-            EOL
-            
-            # Ejecutar el script
-            mongo --host mongodb-0.mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /tmp/create_user.js
-            
-            echo "Proceso completado correctamente"
-          else
-            echo "No se encontró información completa en el Secret"
-          fi
+        - /bin/sh
+        - /scripts/setup.sh
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
@@ -70,6 +31,8 @@ spec:
         volumeMounts:
         - name: mongodb-secret-volume
           mountPath: /secrets
+        - name: script-volume
+          mountPath: /scripts
       containers:
       - name: completion
         image: busybox
@@ -78,4 +41,8 @@ spec:
       - name: mongodb-secret-volume
         secret:
           secretName: mongodb-credentials
+      - name: script-volume
+        configMap:
+          name: mongodb-user-manager-scripts
+          defaultMode: 0755
       restartPolicy: OnFailure
