@@ -58,6 +58,8 @@ spec:
         volumeMounts:
         - name: mongodb-data
           mountPath: /data/db
+        - name: mongodb-init
+          mountPath: /configmap
         readinessProbe:
           exec:
             command:
@@ -67,17 +69,37 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 5
           periodSeconds: 10
-        # Ejecutar script de inicialización del replica set después de que MongoDB arranque
-        lifecycle:
-          postStart:
-            exec:
-              command: ["/bin/bash", "-c"]
-              args:
-              - |
-                # Esperar a que MongoDB se inicie completamente
-                sleep 15
-                # Ejecutar script de inicialización del replica set
-                mongo /configmap/init-replica.js
+      # Contenedor sidecar para inicializar el replica set
+      - name: mongo-sidecar
+        image: mongo:4.4.18
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          # Esperar a que MongoDB se inicie completamente
+          echo "Esperando a que MongoDB se inicie completamente..."
+          until mongo --quiet --eval "db.adminCommand('ping')"; do
+            echo "MongoDB aún no está listo, esperando..."
+            sleep 3
+          done
+          
+          echo "MongoDB está listo. Configurando replica set..."
+          mongo /configmap/init-replica.js
+          
+          echo "Configuración de replica set completada. Sidecar entrando en modo sleep..."
+          # Sidecar permanece en ejecución para evitar reinicios
+          while true; do sleep 3600; done
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-init
+          mountPath: /configmap
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
       volumes:
       - name: mongodb-init
         configMap:
