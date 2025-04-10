@@ -44,8 +44,8 @@ spec:
                 
                 echo "Configurando base de datos $DB_NAME con usuario $DB_USER..."
                 
-                # Ejecutar script con variables pasadas como eval para MongoDB
-                mongo --host mongodb-0.mongodb:27017 \
+                # Conectarse al replica set completo para asegurar que usamos el primario
+                mongo --host "rs0/mongodb-0.mongodb:27017,mongodb-1.mongodb:27017,mongodb-2.mongodb:27017" \
                   -u $MONGO_INITDB_ROOT_USERNAME \
                   -p $MONGO_INITDB_ROOT_PASSWORD \
                   --authenticationDatabase admin \
