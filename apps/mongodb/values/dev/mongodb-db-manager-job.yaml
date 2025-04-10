@@ -11,7 +11,12 @@ spec:
       containers:
       - name: mongodb-manager
         image: bitnami/kubectl:latest
-        command: ["/bin/bash", "/scripts/process-secrets.sh"]
+        command: 
+        - /bin/bash
+        - -c
+        - |
+          chmod +x /scripts/process-secrets.sh
+          /scripts/process-secrets.sh
         env:
         - name: MONGO_INITDB_ROOT_USERNAME
           valueFrom:
@@ -30,5 +35,5 @@ spec:
       - name: manager-scripts
         configMap:
           name: mongodb-db-manager
-          defaultMode: 0700
+          defaultMode: 0777
       restartPolicy: OnFailure
