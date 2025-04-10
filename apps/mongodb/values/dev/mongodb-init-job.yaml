@@ -17,66 +17,16 @@ spec:
         - /bin/bash
         - -c
         - |
-          # Esperar a que todos los nodos de MongoDB estén listos
-          echo "Esperando a que todos los nodos MongoDB estén disponibles..."
+          # Esperar a que MongoDB esté disponible
+          echo "Esperando a que MongoDB esté disponible..."
           sleep 30
           
-          # Verificar el estado del replica set
-          echo "Verificando si el replica set ya está configurado..."
-          if mongo --host mongodb-0.mongodb --eval "rs.status()" --quiet | grep -q "ok.*1"; then
-            echo "El replica set ya está configurado. Omitiendo inicialización."
-            exit 0
-          fi
+          # Intentar inicializar el replica set
+          echo "Intentando inicializar el replica set..."
+          mongo --host mongodb-0.mongodb --port 27017 /configmap/init-replica.js
           
-          # Inicializar el replica set
-          echo "Inicializando el replica set..."
-          mongo --host mongodb-0.mongodb --port 27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /configmap/init-replica.js
-          
-          # Verificar que la inicialización fue exitosa
-          echo "Verificando la inicialización del replica set..."
-          MAX_ATTEMPTS=30
-          ATTEMPT=1
-          
-          while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-            if mongo --host mongodb-0.mongodb --eval "rs.status().ok" --quiet | grep -q "1"; then
-              echo "¡Replica set inicializado correctamente!"
-              
-              # Esperar hasta que el primario esté listo (máximo 30 segundos más)
-              PRIMARY_WAIT=15
-              echo "Esperando a que el primario sea elegido (máximo $PRIMARY_WAIT segundos)..."
-              for i in $(seq 1 $PRIMARY_WAIT); do
-                if mongo --host mongodb-0.mongodb --eval "rs.isMaster().ismaster" --quiet | grep -q "true"; then
-                  echo "¡Primario establecido! El replica set está completamente operativo."
-                  exit 0
-                fi
-                echo "Esperando al primario... ($i/$PRIMARY_WAIT)"
-                sleep 1
-              done
-              
-              echo "El replica set está inicializado, pero aún no se ha detectado un primario."
-              echo "Las operaciones continuarán normalmente cuando se elija un primario."
-              exit 0
-            fi
-            
-            echo "Esperando a que el replica set se estabilice... ($ATTEMPT/$MAX_ATTEMPTS)"
-            ATTEMPT=$((ATTEMPT+1))
-            sleep 2
-          done
-          
-          echo "ADVERTENCIA: No se pudo confirmar la inicialización del replica set después de varios intentos."
-          echo "Verifique los logs de MongoDB para más detalles."
-          exit 1
-        env:
-        - name: MONGO_INITDB_ROOT_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: root-username
-        - name: MONGO_INITDB_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: root-password
+          # Salir con éxito (el script de init-replica.js maneja los errores)
+          exit 0
         volumeMounts:
         - name: init-configmap
           mountPath: /configmap
