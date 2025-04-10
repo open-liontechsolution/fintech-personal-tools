@@ -41,95 +41,46 @@ data:
     databases.forEach(function(db) {
       print("Procesando base de datos: " + db.name);
       
-      // Conectar/crear la base de datos
-      var database = db.conn.getDB(db.name);
-      
-      // Crear usuario si se proporcionan credenciales
-      if (db.username && db.password) {
-        try {
-          // Verificar si el usuario ya existe
-          var userExists = database.getUser(db.username);
-          
-          if (!userExists) {
-            database.createUser({
-              user: db.username,
-              pwd: db.password,
-              roles: db.roles || [{ role: "readWrite", db: db.name }]
-            });
-            print("Usuario " + db.username + " creado para la base de datos " + db.name);
-            usersCreated++;
-          } else {
-            print("El usuario " + db.username + " ya existe en " + db.name);
+      try {
+        // Conectar a la base de datos (MongoDB la creará automáticamente si no existe)
+        var database = db.getSiblingDB(db.name);
+        
+        // Crear un documento dummy para asegurar que la base de datos se persista
+        database.dummy.insertOne({ _id: "init", createdAt: new Date() });
+        database.dummy.deleteOne({ _id: "init" });
+        
+        print("Base de datos " + db.name + " verificada/creada");
+        
+        // Crear usuario si se proporcionan credenciales
+        if (db.username && db.password) {
+          try {
+            // Verificar si el usuario ya existe
+            var userExists = database.getUser(db.username);
             
-            // Actualizar contraseña si se solicita
-            if (db.updatePassword === true) {
-              database.changeUserPassword(db.username, db.password);
-              print("Contraseña actualizada para " + db.username);
+            if (!userExists) {
+              database.createUser({
+                user: db.username,
+                pwd: db.password,
+                roles: db.roles || [{ role: "readWrite", db: db.name }]
+              });
+              print("Usuario " + db.username + " creado para la base de datos " + db.name);
+              usersCreated++;
+            } else {
+              print("El usuario " + db.username + " ya existe en " + db.name);
+              
+              // Actualizar contraseña si se solicita
+              if (db.updatePassword === true) {
+                database.changeUserPassword(db.username, db.password);
+                print("Contraseña actualizada para " + db.username);
+              }
             }
+          } catch (err) {
+            print("Error al gestionar el usuario " + db.username + ": " + err);
           }
-        } catch (err) {
-          print("Error al crear usuario " + db.username + ": " + err);
         }
+      } catch (err) {
+        print("Error al procesar la base de datos " + db.name + ": " + err);
       }
     });
     
     print("Finalizado. Se crearon/actualizaron " + usersCreated + " usuarios");
-  
-  process-secrets.sh: |
-    #!/bin/bash
-    set -e
-    
-    echo "Iniciando el procesamiento de secretos para MongoDB..."
-    
-    # Esperar a que MongoDB esté listo
-    sleep 15
-    
-    # Función para procesar un secret
-    process_secret() {
-      local secret_name=$1
-      echo "Procesando secret: $secret_name"
-      
-      # Verificar si el secret tiene el formato esperado
-      if kubectl get secret $secret_name -n mongodb-dev -o jsonpath='{.metadata.annotations.mongodb\.io/managed}' 2>/dev/null | grep -q 'true'; then
-        echo "Secret $secret_name está gestionado por MongoDB"
-        
-        # Extraer y decodificar la información del secret
-        DB_NAME=$(kubectl get secret $secret_name -n mongodb-dev -o jsonpath='{.data.database}' | base64 --decode)
-        DB_USER=$(kubectl get secret $secret_name -n mongodb-dev -o jsonpath='{.data.username}' | base64 --decode)
-        DB_PASS=$(kubectl get secret $secret_name -n mongodb-dev -o jsonpath='{.data.password}' | base64 --decode)
-        
-        if [ -n "$DB_NAME" ] && [ -n "$DB_USER" ] && [ -n "$DB_PASS" ]; then
-          echo "Encontrada información para la base de datos: $DB_NAME"
-          
-          # Añadir a nuestro array de bases de datos
-          if [ -z "$DATABASES" ]; then
-            DATABASES="[{\"name\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASS\"}]"
-          else
-            DATABASES=$(echo $DATABASES | sed 's/\]$/,{"name":"'$DB_NAME'","username":"'$DB_USER'","password":"'$DB_PASS'"}]/')
-          fi
-        else
-          echo "Secret $secret_name no contiene toda la información necesaria"
-        fi
-      else
-        echo "Secret $secret_name no está gestionado por MongoDB"
-      fi
-    }
-    
-    # Inicializar la variable de bases de datos
-    DATABASES="[]"
-    
-    # Procesar todos los secrets con la anotación mongodb.io/managed=true
-    for secret in $(kubectl get secrets -n mongodb-dev -o jsonpath='{.items[?(@.metadata.annotations.mongodb\.io/managed=="true")].metadata.name}'); do
-      process_secret $secret
-    done
-    
-    # Exportar la lista de bases de datos como variable de entorno
-    export MONGODB_DATABASES="$DATABASES"
-    echo "Bases de datos a procesar: $MONGODB_DATABASES"
-    
-    # Ejecutar el script de MongoDB para gestionar usuarios
-    if [ "$DATABASES" != "[]" ]; then
-      mongo --host mongodb-0.mongodb mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongodb-0.mongodb:27017/admin /scripts/user-management.js
-    else
-      echo "No hay bases de datos para procesar"
-    fi
