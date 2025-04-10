@@ -44,14 +44,12 @@ spec:
                 
                 echo "Configurando base de datos $DB_NAME con usuario $DB_USER..."
                 
-                # Exportar variables para el script de JS
-                export DB_NAME DB_USER DB_PASS
-                
-                # Ejecutar script de JavaScript para MongoDB
+                # Ejecutar script con variables pasadas como eval para MongoDB
                 mongo --host mongodb-0.mongodb:27017 \
                   -u $MONGO_INITDB_ROOT_USERNAME \
                   -p $MONGO_INITDB_ROOT_PASSWORD \
                   --authenticationDatabase admin \
+                  --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
                   /scripts/init-user.js
                 
                 echo "Procesamiento completado para $SECRET_NAME"

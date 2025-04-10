@@ -6,38 +6,37 @@ metadata:
 data:
   init-user.js: |
     // Este script crea o actualiza usuario en MongoDB
-    // Recibe variables de entorno: DB_NAME, DB_USER, DB_PASS
+    // Debe ejecutarse con las variables DB_NAME, DB_USER y DB_PASS definidas como eval
     
-    const dbName = process.env.DB_NAME;
-    const dbUser = process.env.DB_USER;
-    const dbPass = process.env.DB_PASS;
-    
-    if (!dbName || !dbUser || !dbPass) {
-      print("ERROR: Faltan variables de entorno requeridas (DB_NAME, DB_USER, DB_PASS)");
+    // Verificar que las variables existen
+    if (typeof DB_NAME === "undefined" || typeof DB_USER === "undefined" || typeof DB_PASS === "undefined") {
+      print("ERROR: Faltan variables requeridas. Ejecuta con --eval 'DB_NAME=\"nombre\"; DB_USER=\"usuario\"; DB_PASS=\"contraseña\"'");
       quit(1);
     }
     
+    print("Trabajando con base de datos: " + DB_NAME + ", usuario: " + DB_USER);
+    
     // Conectar a la base de datos
-    const db = db.getSiblingDB(dbName);
+    var db = db.getSiblingDB(DB_NAME);
     
     // Verificar si el usuario ya existe
-    const userExists = db.getUser(dbUser);
+    var userExists = db.getUser(DB_USER);
     
     if (userExists) {
-      print(`El usuario ${dbUser} ya existe en ${dbName}, actualizando contraseña...`);
-      db.changeUserPassword(dbUser, dbPass);
+      print("El usuario " + DB_USER + " ya existe en " + DB_NAME + ", actualizando contraseña...");
+      db.changeUserPassword(DB_USER, DB_PASS);
       print("Contraseña actualizada");
     } else {
-      print(`Creando nuevo usuario ${dbUser} en ${dbName}...`);
+      print("Creando nuevo usuario " + DB_USER + " en " + DB_NAME + "...");
       db.createUser({
-        user: dbUser,
-        pwd: dbPass,
-        roles: [{ role: "readWrite", db: dbName }]
+        user: DB_USER,
+        pwd: DB_PASS,
+        roles: [{ role: "readWrite", db: DB_NAME }]
       });
       print("Usuario creado exitosamente");
     }
     
-    print(`Configuración completada para ${dbName}`);
+    print("Configuración completada para " + DB_NAME);
   
   setup.sh: |
     #!/bin/sh
@@ -48,17 +47,19 @@ data:
     
     echo "Extrayendo información del Secret..."
     if [ -f /secrets/database ] && [ -f /secrets/username ] && [ -f /secrets/password ]; then
-      export DB_NAME=$(cat /secrets/database)
-      export DB_USER=$(cat /secrets/username)
-      export DB_PASS=$(cat /secrets/password)
+      DB_NAME=$(cat /secrets/database)
+      DB_USER=$(cat /secrets/username)
+      DB_PASS=$(cat /secrets/password)
       
       echo "Creando usuario $DB_USER para la base de datos $DB_NAME..."
       
-      # Ejecutar script de JavaScript para MongoDB
+      # Ejecutar script de JavaScript con las variables definidas mediante --eval
+      # Esto evita problemas con los heredocs y el process.env
       mongo --host mongodb-0.mongodb:27017 \
         -u $MONGO_INITDB_ROOT_USERNAME \
         -p $MONGO_INITDB_ROOT_PASSWORD \
         --authenticationDatabase admin \
+        --eval "var DB_NAME=\"$DB_NAME\"; var DB_USER=\"$DB_USER\"; var DB_PASS=\"$DB_PASS\";" \
         /scripts/init-user.js
       
       echo "Proceso completado correctamente"
