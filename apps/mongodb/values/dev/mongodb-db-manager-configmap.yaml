@@ -102,7 +102,6 @@ data:
     });
     
     print("Finalizado. Se crearon/actualizaron " + usersCreated + " usuarios");
-    
   mongodb-user-manager.sh: |
     #!/bin/bash
     # Script para gestionar usuarios de MongoDB
@@ -134,14 +133,14 @@ data:
       # Crear un archivo temporal con la configuración de las bases de datos
       # Este enfoque evita problemas de escape de comillas al pasar JSON como argumento
       echo "// Archivo temporal generado automáticamente
-var databases = [
-  {
-    name: '$DB_NAME',
-    username: '$DB_USER',
-    password: '$DB_PASS',
-    roles: [{ role: 'readWrite', db: '$DB_NAME' }]
-  }
-];" > /tmp/mongodb-databases.js
+    var databases = [
+      {
+        name: '$DB_NAME',
+        username: '$DB_USER',
+        password: '$DB_PASS',
+        roles: [{ role: 'readWrite', db: '$DB_NAME' }]
+      }
+    ];" > /tmp/mongodb-databases.js
       
       # Para debug
       echo "Contenido del archivo de configuración:"
@@ -154,7 +153,7 @@ var databases = [
       
       # Crear un archivo vacío para evitar errores
       echo "// Archivo temporal generado automáticamente
-var databases = [];" > /tmp/mongodb-databases.js
+    var databases = [];" > /tmp/mongodb-databases.js
     fi
     
     # Verificar si MongoDB está configurado con autenticación
