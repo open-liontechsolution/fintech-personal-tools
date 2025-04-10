@@ -34,8 +34,23 @@ data:
       quit(1);
     }
     
-    // Procesar los secretos que definen usuarios y bases de datos
-    var databases = JSON.parse(process.env.MONGODB_DATABASES || "[]");
+    // Las variables de entorno no están disponibles directamente en el shell de MongoDB
+    // Esta variable MONGODB_DATABASES debe ser definida como variable global al iniciar el script
+    var databases = [];
+    
+    try {
+      // Intentar acceder a la variable MONGODB_DATABASES que debe ser definida externamente
+      if (typeof MONGODB_DATABASES !== 'undefined') {
+        databases = JSON.parse(MONGODB_DATABASES);
+        print("Bases de datos a procesar: " + MONGODB_DATABASES);
+      } else {
+        print("ADVERTENCIA: Variable MONGODB_DATABASES no definida. No hay bases de datos para procesar.");
+      }
+    } catch (err) {
+      print("Error al parsear la lista de bases de datos: " + err);
+      quit(1);
+    }
+    
     var usersCreated = 0;
     
     databases.forEach(function(db) {
@@ -55,7 +70,12 @@ data:
         if (db.username && db.password) {
           try {
             // Verificar si el usuario ya existe
-            var userExists = database.getUser(db.username);
+            var userExists = false;
+            try {
+              userExists = database.getUser(db.username) !== null;
+            } catch (e) {
+              print("Error al verificar usuario existente: " + e);
+            }
             
             if (!userExists) {
               database.createUser({
@@ -84,3 +104,106 @@ data:
     });
     
     print("Finalizado. Se crearon/actualizaron " + usersCreated + " usuarios");
+    
+  mongodb-user-manager.sh: |
+    #!/bin/bash
+    # Script para gestionar usuarios de MongoDB
+    
+    echo "Iniciando el procesamiento de usuarios para MongoDB..."
+    
+    # Esperar a que MongoDB esté disponible
+    echo "Esperando a que MongoDB esté disponible..."
+    until mongo --host mongodb-0.mongodb --eval "db.adminCommand('ping')" --quiet; do
+      echo "MongoDB no está disponible aún. Esperando 5 segundos..."
+      sleep 5
+    done
+    
+    # Inicializar array de bases de datos
+    DATABASES="[]"
+    
+    # Debug: Mostrar contenido del directorio de secretos
+    echo "Contenido del directorio /secrets:"
+    ls -la /secrets/
+    
+    # En volúmenes proyectados, los secretos se montan directamente
+    if [ -f "/secrets/database" ] && [ -f "/secrets/username" ] && [ -f "/secrets/password" ]; then
+      DB_NAME=$(cat "/secrets/database")
+      DB_USER=$(cat "/secrets/username")
+      DB_PASS=$(cat "/secrets/password")
+      
+      echo "Encontrada información para la base de datos: $DB_NAME"
+      
+      # Crear el JSON para el script de MongoDB
+      DATABASES="[{\"name\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASS\"}]"
+    else
+      echo "No se encontraron los archivos esperados en /secrets/"
+      echo "Archivos presentes:"
+      find /secrets -type f | sort
+    fi
+    
+    # No es necesario exportar como variable de entorno, ya que pasaremos directamente como variable de MongoDB
+    echo "Bases de datos a procesar: $DATABASES"
+    
+    # Verificar si MongoDB está configurado con autenticación
+    echo "Verificando configuración de seguridad de MongoDB..."
+    AUTH_ENABLED=$(mongo --host mongodb-0.mongodb --eval "try { db.serverCmdLineOpts().parsed.security.authorization || 'disabled' } catch(e) { 'unknown' }" --quiet)
+    
+    echo "Estado de la autenticación en MongoDB: $AUTH_ENABLED"
+    
+    # Verificar si el usuario admin ya existe
+    echo "Verificando si existe el usuario admin..."
+    ADMIN_EXISTS=$(mongo --host mongodb-0.mongodb --eval "try { db = db.getSiblingDB('admin'); db.system.users.find({user:'admin'}).count() > 0 } catch(e) { false }" --quiet)
+    
+    echo "¿Existe el usuario admin?: $ADMIN_EXISTS"
+    
+    # Definir comando de MongoDB basado en la configuración
+    if [ "$AUTH_ENABLED" == "enabled" ]; then
+      echo "MongoDB tiene autenticación habilitada, intentando autenticar..."
+      
+      # Intentar autenticar con diferentes variantes
+      mongo --host mongodb-0.mongodb -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "printjson(db.adminCommand('ping'))" --quiet
+      
+      if [ $? -eq 0 ]; then
+        echo " Autenticación exitosa con credenciales de secret"
+        # Pasamos la variable MONGODB_DATABASES como variable global JavaScript
+        MONGO_CMD="mongo --host mongodb-0.mongodb -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"var MONGODB_DATABASES='$DATABASES'\" /scripts/user-management.js"
+      else
+        echo " Autenticación fallida. No se puede continuar cuando la autenticación está habilitada pero las credenciales no funcionan."
+        echo "Por favor verifica que las credenciales en el secret mongodb-secret son correctas."
+        exit 1
+      fi
+    else
+      echo " MongoDB está ejecutándose sin autenticación habilitada, continuando sin credenciales."
+      echo "Es altamente recomendable habilitar la autenticación en entornos de producción."
+      
+      # Si MongoDB no tiene autenticación, creamos el usuario admin si no existe
+      if [ "$ADMIN_EXISTS" == "false" ]; then
+        echo "Creando usuario admin ya que no existe..."
+        mongo --host mongodb-0.mongodb admin --eval "db.createUser({user: '$MONGO_INITDB_ROOT_USERNAME', pwd: '$MONGO_INITDB_ROOT_PASSWORD', roles: ['root']})"
+        
+        if [ $? -eq 0 ]; then
+          echo " Usuario admin creado exitosamente"
+        else
+          echo " No se pudo crear el usuario admin"
+        fi
+      fi
+      
+      # Usar MongoDB sin autenticación, pasando la variable MONGODB_DATABASES como variable global JavaScript
+      MONGO_CMD="mongo --host mongodb-0.mongodb --eval \"var MONGODB_DATABASES='$DATABASES'\" /scripts/user-management.js"
+    fi
+    
+    # Ejecutar el script de gestión de usuarios
+    if [ "$DATABASES" != "[]" ]; then
+      echo "Ejecutando script de gestión de usuarios..."
+      echo "Comando a ejecutar: $MONGO_CMD"
+      eval "$MONGO_CMD"
+      
+      if [ $? -eq 0 ]; then
+        echo " Procesamiento de usuarios completado con éxito."
+      else
+        echo " El script de gestión de usuarios falló con código $?"
+        exit 1
+      fi
+    else
+      echo "No hay bases de datos para procesar"
+    fi
