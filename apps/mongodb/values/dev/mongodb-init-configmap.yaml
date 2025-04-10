@@ -5,29 +5,107 @@ metadata:
   namespace: mongodb-dev
 data:
   init-replica.js: |
+    // Script mejorado para inicializar el replica set
+    // Maneja situaciones donde los PVC permanecen pero el despliegue se recrea
+    
+    // Verificar el estado actual del replica set
+    print("Verificando el estado actual del replica set...");
+    var rsStatus;
+    
+    try {
+      rsStatus = rs.status();
+      print("Estado del replica set: " + JSON.stringify(rsStatus));
+    } catch (err) {
+      print("Error al verificar el estado del replica set: " + err);
+      // Error 94 = no se ha iniciado, Error 93 = configuración inválida
+      if (err.code === 94 || err.code === 93) {
+        print("El replica set no está iniciado o tiene una configuración inválida. Procediendo con la inicialización.");
+      } else {
+        print("Error inesperado. Detalles: " + err);
+      }
+    }
+    
+    // Si el estado es inválido, intentamos limpiar la configuración primero
+    if (rsStatus && rsStatus.ok === 0 && rsStatus.code === 93) {
+      print("Detectada configuración inválida del replica set. Intentando reparar...");
+      
+      try {
+        // Limpiar la configuración del replica set usando un comando local
+        db.adminCommand({ replSetReconfig: { _id: "rs0", version: 1, members: [] }, force: true });
+        print("Se ha limpiado la configuración previa del replica set");
+      } catch (cleanupErr) {
+        print("No se pudo limpiar la configuración previa: " + cleanupErr);
+        print("Continuando con la inicialización forzada...");
+      }
+      
+      // Esperamos un momento para que los cambios surtan efecto
+      sleep(2000);
+    }
+    
     // Inicializar el replica set con una configuración básica
     try {
-      rs.initiate(
-        {
-          _id: "rs0",
-          members: [
-            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 1 },
-            { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
-            { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
-          ]
-        }
-      );
+      print("Iniciando la inicialización del replica set...");
+      var config = {
+        _id: "rs0",
+        version: 1,
+        members: [
+          { _id: 0, host: "mongodb-0.mongodb:27017", priority: 1 },
+          { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
+          { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
+        ]
+      };
       
-      print("Configuración del replica set enviada correctamente");
+      var initResult = rs.initiate(config);
+      print("Resultado de la inicialización: " + JSON.stringify(initResult));
+      
+      if (initResult.ok !== 1) {
+        // Si falla la inicialización normal, intentamos con fuerza
+        print("La inicialización normal falló. Intentando inicialización forzada...");
+        try {
+          var forceResult = db.adminCommand({ replSetReconfig: config, force: true });
+          print("Resultado de inicialización forzada: " + JSON.stringify(forceResult));
+        } catch (forceErr) {
+          print("Error durante la inicialización forzada: " + forceErr);
+        }
+      }
     } catch (err) {
       print("Error durante la inicialización del replica set: " + err);
+      
       // Si ya está inicializado, no es un error fatal
       if (err.message && err.message.includes("already initialized")) {
-        print("El replica set ya estaba inicializado.");
+        print("El replica set ya estaba inicializado correctamente.");
+      } else if (err.codeName === "InvalidReplicaSetConfig") {
+        print("Configuración inválida de replica set. Intentando forzar la reconfiguración...");
+        try {
+          var forceConfig = db.adminCommand({ replSetReconfig: config, force: true });
+          print("Resultado de reconfiguración forzada: " + JSON.stringify(forceConfig));
+        } catch (forceErr) {
+          print("Error durante la reconfiguración forzada: " + forceErr);
+          quit(1);
+        }
       } else {
+        print("Error fatal durante la inicialización: " + err);
         quit(1);
       }
     }
     
-    // Salir inmediatamente - el job manejará la espera y verificación
+    // Esperar brevemente para que los cambios se apliquen
+    sleep(3000);
+    
+    // Verificar el estado final
+    try {
+      var finalStatus = rs.status();
+      print("Estado final del replica set: " + JSON.stringify(finalStatus));
+      
+      if (finalStatus.ok === 1) {
+        print("✅ Replica set inicializado correctamente");
+      } else {
+        print("❌ El replica set aún tiene problemas: " + JSON.stringify(finalStatus));
+        quit(1);
+      }
+    } catch (finalErr) {
+      print("Error al verificar el estado final: " + finalErr);
+      quit(1);
+    }
+    
     print("Script de inicialización completado");
