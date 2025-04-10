@@ -34,7 +34,6 @@ spec:
           ls -la /secrets/
           
           # En volúmenes proyectados, los secretos se montan directamente
-          # No hay subdirectorios como se esperaba
           if [ -f "/secrets/database" ] && [ -f "/secrets/username" ] && [ -f "/secrets/password" ]; then
             DB_NAME=$(cat "/secrets/database")
             DB_USER=$(cat "/secrets/username")
@@ -54,11 +53,57 @@ spec:
           export MONGODB_DATABASES="$DATABASES"
           echo "Bases de datos a procesar: $MONGODB_DATABASES"
           
+          # Verificar credenciales root
+          echo "Verificando credenciales de root..."
+          echo "Usuario root: $MONGO_INITDB_ROOT_USERNAME"
+          
+          # Probar primero sin autenticación para comprobar el estado de MongoDB
+          echo "Probando conexión directa sin autenticación..."
+          mongo --host mongodb-0.mongodb --eval "try { rs.status() } catch(err) { print('Error: ' + err.message) }" --quiet
+          
+          # Intentar autenticar con diferentes variantes de sintaxis
+          echo "Intentando autenticar con MongoDB (variante 1)..."
+          mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval "printjson(db.adminCommand('ping'))" --quiet
+          
+          if [ $? -ne 0 ]; then
+            echo "Primer intento falló, probando variante 2 (con comillas)..."
+            mongo --host mongodb-0.mongodb -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "printjson(db.adminCommand('ping'))" --quiet
+            
+            if [ $? -ne 0 ]; then
+              echo "También falló variante 2, probando variante 3 (URI)..."
+              mongo "mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb-0.mongodb:27017/admin" --eval "printjson(db.adminCommand('ping'))" --quiet
+              
+              if [ $? -ne 0 ]; then
+                echo "❌ Todos los intentos de autenticación fallaron"
+                echo "Por favor, verifica que:"
+                echo "1. Las credenciales en el secreto 'mongodb-secret' son correctas"
+                echo "2. MongoDB está configurado para usar autenticación"
+                echo "3. El usuario root existe en la base de datos admin"
+                exit 1
+              else
+                MONGO_AUTH_CMD="mongo \"mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb-0.mongodb:27017/admin\""
+                echo "✅ Autenticación exitosa con variante 3 (URI)"
+              fi
+            else
+              MONGO_AUTH_CMD="mongo --host mongodb-0.mongodb -u \"$MONGO_INITDB_ROOT_USERNAME\" -p \"$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin"
+              echo "✅ Autenticación exitosa con variante 2 (con comillas)"
+            fi
+          else
+            MONGO_AUTH_CMD="mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin"
+            echo "✅ Autenticación exitosa con variante 1"
+          fi
+          
           # Ejecutar el script de gestión de usuarios
           if [ "$MONGODB_DATABASES" != "[]" ]; then
             echo "Ejecutando script de gestión de usuarios..."
-            mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /scripts/user-management.js
-            echo "Procesamiento de usuarios completado."
+            eval "$MONGO_AUTH_CMD /scripts/user-management.js"
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Procesamiento de usuarios completado con éxito."
+            else
+              echo "❌ El script de gestión de usuarios falló con código $?"
+              exit 1
+            fi
           else
             echo "No hay bases de datos para procesar"
           fi
