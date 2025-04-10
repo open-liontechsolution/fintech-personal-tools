@@ -17,7 +17,58 @@ spec:
             command:
             - /bin/bash
             - -c
-            - /scripts/process-secrets.sh
+            - |
+              echo "Iniciando el procesamiento de usuarios para MongoDB..."
+              
+              # Esperar a que MongoDB esté disponible
+              echo "Esperando a que MongoDB esté disponible..."
+              until mongo --host mongodb-0.mongodb --eval "db.adminCommand('ping')" --quiet; do
+                echo "MongoDB no está disponible aún. Esperando 5 segundos..."
+                sleep 5
+              done
+              
+              # Inicializar array de bases de datos
+              DATABASES="[]"
+              
+              # Buscar todos los secretos montados que tienen la anotación mongodb.io/managed=true
+              echo "Buscando secretos MongoDB en /secrets..."
+              
+              for SECRET_DIR in /secrets/*/; do
+                if [ -d "$SECRET_DIR" ]; then
+                  echo "Procesando secreto en: $SECRET_DIR"
+                  
+                  # Verificar que existan los archivos necesarios
+                  if [ -f "${SECRET_DIR}database" ] && [ -f "${SECRET_DIR}username" ] && [ -f "${SECRET_DIR}password" ]; then
+                    DB_NAME=$(cat "${SECRET_DIR}database")
+                    DB_USER=$(cat "${SECRET_DIR}username")
+                    DB_PASS=$(cat "${SECRET_DIR}password")
+                    
+                    echo "Encontrada información para la base de datos: $DB_NAME"
+                    
+                    # Añadir a nuestro array de bases de datos
+                    if [ "$DATABASES" == "[]" ]; then
+                      DATABASES="[{\"name\":\"$DB_NAME\",\"username\":\"$DB_USER\",\"password\":\"$DB_PASS\"}]"
+                    else
+                      DATABASES=$(echo $DATABASES | sed 's/\]$/,{"name":"'$DB_NAME'","username":"'$DB_USER'","password":"'$DB_PASS'"}]/')
+                    fi
+                  else
+                    echo "Error: Secreto incompleto, faltan campos requeridos"
+                  fi
+                fi
+              done
+              
+              # Exportar la lista de bases de datos como variable de entorno
+              export MONGODB_DATABASES="$DATABASES"
+              echo "Bases de datos a procesar: $MONGODB_DATABASES"
+              
+              # Ejecutar el script de gestión de usuarios
+              if [ "$MONGODB_DATABASES" != "[]" ]; then
+                echo "Ejecutando script de gestión de usuarios..."
+                mongo --host mongodb-0.mongodb -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin /scripts/user-management.js
+                echo "Procesamiento de usuarios completado."
+              else
+                echo "No hay bases de datos para procesar"
+              fi
             env:
             - name: MONGO_INITDB_ROOT_USERNAME
               valueFrom:
@@ -32,9 +83,18 @@ spec:
             volumeMounts:
             - name: scripts-volume
               mountPath: /scripts
+            - name: mongodb-managed-secrets
+              mountPath: /secrets
+              readOnly: true
           volumes:
           - name: scripts-volume
             configMap:
               name: mongodb-db-manager
               defaultMode: 0755
+          - name: mongodb-managed-secrets
+            projected:
+              sources:
+              - secret:
+                  name: mongodb-credentials
+              # Añadir aquí más secrets con la anotación mongodb.io/managed=true si es necesario
           restartPolicy: OnFailure
