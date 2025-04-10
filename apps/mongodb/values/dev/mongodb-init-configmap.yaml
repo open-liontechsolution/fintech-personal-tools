@@ -11,7 +11,7 @@ data:
         {
           _id: "rs0",
           members: [
-            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 10 },
+            { _id: 0, host: "mongodb-0.mongodb:27017", priority: 1 },
             { _id: 1, host: "mongodb-1.mongodb:27017", priority: 1 },
             { _id: 2, host: "mongodb-2.mongodb:27017", priority: 1 }
           ]
