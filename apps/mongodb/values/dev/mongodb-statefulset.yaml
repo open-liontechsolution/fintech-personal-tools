@@ -5,7 +5,7 @@ metadata:
   namespace: mongodb-dev
 spec:
   serviceName: mongodb
-  replicas: 3
+  replicas: 1
   selector:
     matchLabels:
       app: mongodb
@@ -16,23 +16,6 @@ spec:
       annotations:
         checksum/config: "${RANDOM}"
     spec:
-      # Contenedor de inicialización para ejecutar el script de limpieza
-      initContainers:
-      - name: init-mongodb-recovery
-        image: mongo:4.4.18
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          # Copiar y ejecutar el script de limpieza
-          echo "Iniciando proceso de recuperación automática..."
-          cp /configmap/startup-script.sh /tmp/startup-script.sh
-          chmod +x /tmp/startup-script.sh
-          /tmp/startup-script.sh
-        volumeMounts:
-        - name: mongodb-data
-          mountPath: /data/db
-        - name: mongodb-init
-          mountPath: /configmap
       containers:
       - name: mongodb
         image: mongo:4.4.18
@@ -40,14 +23,9 @@ spec:
         - mongod
         args:
         - "--bind_ip_all"
-        - "--replSet"
-        - "rs0"
         ports:
         - containerPort: 27017
           name: mongodb
-        env:
-        - name: REPLICA_SET_NAME
-          value: "rs0"
         resources:
           limits:
             cpu: 1000m
@@ -58,8 +36,6 @@ spec:
         volumeMounts:
         - name: mongodb-data
           mountPath: /data/db
-        - name: mongodb-init
-          mountPath: /configmap
         readinessProbe:
           exec:
             command:
@@ -69,43 +45,6 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 5
           periodSeconds: 10
-      # Contenedor sidecar para inicializar el replica set
-      - name: mongo-sidecar
-        image: mongo:4.4.18
-        command: ["/bin/bash", "-c"]
-        args:
-        - |
-          # Esperar a que MongoDB se inicie completamente
-          echo "Esperando a que MongoDB se inicie completamente..."
-          until mongo --quiet --eval "db.adminCommand('ping')"; do
-            echo "MongoDB aún no está listo, esperando..."
-            sleep 3
-          done
-          
-          echo "MongoDB está listo. Configurando replica set..."
-          mongo /configmap/init-replica.js
-          
-          echo "Configuración de replica set completada. Sidecar entrando en modo sleep..."
-          # Sidecar permanece en ejecución para evitar reinicios
-          while true; do sleep 3600; done
-        volumeMounts:
-        - name: mongodb-data
-          mountPath: /data/db
-        - name: mongodb-init
-          mountPath: /configmap
-        resources:
-          limits:
-            cpu: 100m
-            memory: 128Mi
-          requests:
-            cpu: 50m
-            memory: 64Mi
-      volumes:
-      - name: mongodb-init
-        configMap:
-          name: mongodb-init
-          defaultMode: 0755
-      terminationGracePeriodSeconds: 30
   volumeClaimTemplates:
   - metadata:
       name: mongodb-data

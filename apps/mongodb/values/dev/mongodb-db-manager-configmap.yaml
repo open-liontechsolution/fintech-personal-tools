@@ -7,30 +7,31 @@ data:
   user-management.js: |
     // Archivo JS para gestionar usuarios y bases de datos en MongoDB
     
-    // Esperar a que el replica set esté estable (se ejecuta como primario)
+    // Verificar que MongoDB esté disponible
     var maxAttempts = 30;
     var attempt = 0;
-    var isReplicaSetReady = false;
+    var isMongoReady = false;
     
-    while (attempt < maxAttempts && !isReplicaSetReady) {
+    while (attempt < maxAttempts && !isMongoReady) {
       try {
-        var status = rs.status();
-        if (status.ok && status.members.some(m => m.state === 1)) {
-          isReplicaSetReady = true;
-          print("Replica set está listo como primario");
+        // Usamos adminCommand ping en lugar de rs.status()
+        var status = db.adminCommand({ ping: 1 });
+        if (status.ok) {
+          isMongoReady = true;
+          print("MongoDB está listo");
         } else {
-          print("Esperando a que el replica set esté listo...");
+          print("Esperando a que MongoDB esté listo...");
           sleep(2000);
         }
       } catch (err) {
-        print("Error al verificar el estado del replica set: " + err);
+        print("Error al verificar el estado de MongoDB: " + err);
         sleep(2000);
       }
       attempt++;
     }
     
-    if (!isReplicaSetReady) {
-      print("ERROR: No se pudo conectar al replica set después de varios intentos");
+    if (!isMongoReady) {
+      print("ERROR: No se pudo conectar a MongoDB después de varios intentos");
       quit(1);
     }
     
