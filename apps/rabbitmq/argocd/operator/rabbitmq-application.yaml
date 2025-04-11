@@ -11,10 +11,9 @@ spec:
       chart: rabbitmq-cluster-operator
       helm:
         releaseName: rabbitmq-operator
-      sourceType: helm
     - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
       targetRevision: HEAD
-      path: apps/rabbitmq/values/dev
+      path: apps/rabbitmq/values/operator
       ref: values
   destination:
     server: https://kubernetes.default.svc
