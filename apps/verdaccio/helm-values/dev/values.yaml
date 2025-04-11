@@ -16,7 +16,7 @@ image:
 # Recursos asignados al pod
 resources:
   limits:
-    cpu: 1
+    cpu: 2
     memory: 512Mi
   requests:
     cpu: 100m
