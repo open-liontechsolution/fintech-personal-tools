@@ -24,8 +24,9 @@ resources:
 
 # Configuración del servicio
 service:
-  type: ClusterIP
+  type: LoadBalancer
   port: 4873
+  loadBalancerIP: 192.169.2.34
 
 # Configuración de ingress usando Cilium
 ingress:
