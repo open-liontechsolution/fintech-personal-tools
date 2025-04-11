@@ -11,10 +11,11 @@ spec:
       chart: rabbitmq-cluster-operator
       helm:
         releaseName: rabbitmq-operator
+      
     - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
       targetRevision: HEAD
       path: apps/rabbitmq/values/operator
-      ref: values
+      
   destination:
     server: https://kubernetes.default.svc
     namespace: rabbitmq-system
@@ -24,3 +25,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+
+## no funciona por ahora usar el siguiente comando
+# helm install rabbitmq-operator bitnami/rabbitmq-cluster-operator --version 4.4.7 --namespace rabbitmq-system -f apps/rabbitmq/values/operator/values.yaml
