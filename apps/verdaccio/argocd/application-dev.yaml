@@ -11,17 +11,14 @@ spec:
       chart: verdaccio
       helm:
         releaseName: verdaccio-dev
-      
     - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
       targetRevision: HEAD
       path: apps/verdaccio/helm-values/dev
-      
   destination:
     server: https://kubernetes.default.svc
     namespace: verdaccio-dev
   syncPolicy:
     automated:
-      # Desactivamos el prune automático para evitar que ArgoCD elimine recursos que no controla
       prune: false
       selfHeal: true
     syncOptions:

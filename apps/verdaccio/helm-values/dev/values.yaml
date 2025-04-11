@@ -16,8 +16,8 @@ image:
 # Recursos asignados al pod
 resources:
   limits:
-    cpu: 200m
-    memory: 256Mi
+    cpu: 1
+    memory: 512Mi
   requests:
     cpu: 100m
     memory: 128Mi
@@ -30,7 +30,7 @@ service:
 
 # Configuración de ingress usando Cilium
 ingress:
-  enabled: true
+  enabled: false
   ingressClassName: "cilium"
   annotations:
     io.cilium/ingress-controller: "true"
@@ -54,7 +54,7 @@ configMap:
   storage: /verdaccio/storage/data
   auth:
     htpasswd:
-      file: /verdaccio/storage/data/htpasswd
+      file: /verdaccio/storage/htpasswd
       max_users: 1000
   uplinks:
     npmjs:
@@ -66,14 +66,14 @@ configMap:
       cache: true
   packages:
     '@fintech-personal/*':
-      access: $authenticated
-      publish: $authenticated
-      unpublish: $authenticated
+      access: $all
+      publish: $all
+      unpublish: $all
       proxy: npmjs
     '**':
       access: $all
-      publish: $authenticated
-      unpublish: $authenticated
+      publish: $all
+      unpublish: $all
       proxy: npmjs
   server:
     keepAliveTimeout: 60
@@ -83,6 +83,13 @@ configMap:
   logs:
     - {type: stdout, format: pretty, level: http}
   max_body_size: 100mb
+
+secrets:
+  # list of users and password for htpasswd plugin
+  # This this is mounted as /verdaccio/auth/htpasswd on pods
+  htpasswd:
+    - username: "verdaccio"
+      password: "verdaccio"
 
 # Definir etiquetas para identificar el entorno
 extraLabels:
