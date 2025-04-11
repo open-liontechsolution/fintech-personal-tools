@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rabbitmq-operator
+  namespace: argocd
+spec:
+  project: tools
+  sources:
+    - repoURL: https://charts.bitnami.com/bitnami
+      targetRevision: 4.4.7
+      chart: rabbitmq-cluster-operator
+      helm:
+        releaseName: rabbitmq-operator
+      sourceType: helm
+    - repoURL: https://github.com/open-liontechsolution/fintech-personal-tools.git
+      targetRevision: HEAD
+      path: apps/rabbitmq/values/dev
+      ref: values
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rabbitmq-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
