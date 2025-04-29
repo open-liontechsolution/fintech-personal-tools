@@ -1,0 +1,119 @@
+name: Deploy FRP Server
+
+on:
+  push:
+    paths:
+      - 'apps/frp/docker/**'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Create deployment directory
+        run: mkdir -p deployment
+      
+      # Preparar archivo de configuración con secretos
+      - name: Create frps.ini with secrets
+        run: |
+          # Crear frps.ini seguro con variables sustituidas
+          cat > deployment/frps.ini << EOF
+          [common]
+          bind_port = 7000
+          dashboard_port = 7500
+          dashboard_user = ${{ secrets.FRPS_DASHBOARD_USER }}
+          dashboard_pwd = ${{ secrets.FRPS_DASHBOARD_PASSWORD }}
+          token = ${{ secrets.FRP_TOKEN }}
+          tls_enable = true
+          log_file = /var/log/frps.log
+          log_level = info
+          log_max_days = 3
+          
+          # Configuración adicional
+          max_pool_count = 50
+          max_ports_per_client = 10
+          enable_prometheus = true
+          EOF
+      
+      # Copiar docker-compose.yml
+      - name: Create docker-compose.yml
+        run: |
+          cat > deployment/docker-compose.yml << EOF
+          version: '3'
+          
+          services:
+            frps:
+              image: snowdreamtech/frps:0.51.3
+              container_name: frps
+              restart: always
+              ports:
+                - "7000:7000"  # Puerto para comunicación del protocolo
+                - "7500:7500"  # Puerto para dashboard
+                # Puertos personalizados según el entorno
+                - "80:80"      # HTTP
+                - "443:443"    # HTTPS
+                # Otros puertos según necesidad
+                - "${{ secrets.FRPS_CUSTOM_PORTS }}"
+              volumes:
+                - ./frps.ini:/etc/frp/frps.ini
+                - frps_log:/var/log
+          
+          volumes:
+            frps_log:
+          EOF
+      
+      # Desplegar en el VPS remoto
+      - name: Deploy to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          source: "deployment/*"
+          target: "/opt/frps"
+          rm: false
+      
+      # Arrancar los servicios
+      - name: Start FRP Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            cd /opt/frps
+            mv deployment/* .
+            rm -rf deployment
+            docker-compose down
+            docker-compose up -d
+            echo "FRP Server deployed successfully"
+      
+      # Actualizar el secreto del token para futuros despliegues de clientes
+      - name: Update Token Secret for Kubernetes
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          # Este paso requiere permisos adicionales o un token PAT con los permisos adecuados
+          # para actualizar secretos de repositorio o dependiendo de cómo manejes tus secretos
+          # en el cluster k3s, podrías usar kubectl para actualizar el secreto directamente
+          echo "Token: ${{ secrets.FRP_TOKEN }}"
+          echo "Para actualizar el token en Kubernetes, debes ejecutar manualmente:"
+          echo "kubectl create secret generic frpc-secrets --from-literal=token=$TOKEN --from-literal=server_addr=$SERVER_ADDR -n fintech-personal-dev --dry-run=client -o yaml | kubectl apply -f -"

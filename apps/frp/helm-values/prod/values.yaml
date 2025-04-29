@@ -1,0 +1,152 @@
+# Valores para el despliegue de FRP en entorno de producción
+
+# Configuración global
+global:
+  namespace: fintech-personal-prod
+  environment: prod
+
+# Configuración del servidor (frps)
+frps:
+  enabled: true
+  replicaCount: 2  # Alta disponibilidad en producción
+  image:
+    repository: snowdreamtech/frps
+    tag: 0.51.3
+    # Aseguramos compatibilidad con ARM64 para Raspberry Pi
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  service:
+    type: ClusterIP
+    ports:
+      - name: frps
+        port: 7000
+        targetPort: 7000
+      - name: dashboard
+        port: 7500
+        targetPort: 7500
+  
+  # Configuración para ingress con Cilium
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: cilium
+      # Añadir anotaciones adicionales para seguridad en producción
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    hosts:
+      - host: frps.yourdomain.com  # Usar un dominio real en producción
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 7500
+    tls:
+      - secretName: frps-tls-cert
+        hosts:
+          - frps.yourdomain.com
+  
+  # Configuración para persistencia
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    mountPath: /data
+  
+  # Configuración del archivo frps.ini
+  config:
+    content: |
+      [common]
+      bind_port = 7000
+      dashboard_port = 7500
+      dashboard_user = admin
+      # Usar una contraseña fuerte en producción
+      dashboard_pwd = CHANGE_TO_STRONG_PASSWORD
+      # Usar un token seguro en producción
+      token = CHANGE_TO_SECURE_TOKEN
+      tls_enable = true
+      log_file = /data/frps.log
+      log_level = info
+      log_max_days = 30
+      max_pool_count = 200
+      max_ports_per_client = 20
+      enable_prometheus = true
+      # Configuración adicional de seguridad para producción
+      authentication_method = token
+      # Limitar conexiones por IP
+      allow_ports = 6000-7000,8000-9000
+      # Configuración para métricas y monitoreo
+      metrics_port = 8080
+      metrics_interval = 60
+
+# Configuración del cliente (frpc)
+frpc:
+  enabled: true
+  replicaCount: 2  # Alta disponibilidad en producción
+  image:
+    repository: snowdreamtech/frpc
+    tag: 0.51.3
+    # Aseguramos compatibilidad con ARM64 para Raspberry Pi
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 300m
+      memory: 384Mi
+    requests:
+      cpu: 150m
+      memory: 192Mi
+  
+  # Configuración para persistencia
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 5Gi
+    mountPath: /data
+  
+  # Configuración del archivo frpc.ini
+  config:
+    content: |
+      [common]
+      server_addr = frps
+      server_port = 7000
+      # Usar el mismo token seguro que en el servidor
+      token = CHANGE_TO_SECURE_TOKEN
+      tls_enable = true
+      log_file = /data/frpc.log
+      log_level = info
+      log_max_days = 30
+      login_fail_exit = false
+      reconnect_interval = 5
+      # Configuración adicional para producción
+      heartbeat_interval = 30
+      heartbeat_timeout = 90
+      
+      # Configuración para exponer web-app
+      [web-app]
+      type = https
+      local_ip = web-app
+      local_port = 3000
+      custom_domains = app.yourdomain.com
+      
+      # Configuración para exponer API
+      [api]
+      type = https
+      local_ip = api-gateway
+      local_port = 8080
+      custom_domains = api.yourdomain.com
+      
+      # Configuración para exponer MongoDB (solo si es necesario en producción)
+      # [mongodb]
+      # type = tcp
+      # local_ip = mongodb
+      # local_port = 27017
+      # remote_port = 27017

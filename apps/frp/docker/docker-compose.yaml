@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  frps:
+    image: snowdreamtech/frps:0.51.3
+    container_name: frps
+    restart: always
+    ports:
+      - "7000:7000"  # Puerto para comunicación del protocolo
+      - "7500:7500"  # Puerto para dashboard
+      # Puertos que serán expuestos externamente (personalizar según necesidades)
+      - "80:80"      # HTTP
+      - "443:443"    # HTTPS
+      - "6000:6000"  # SSH ejemplo
+      - "27017:27017" # MongoDB ejemplo
+    volumes:
+      - ./frps.ini:/etc/frp/frps.ini
+      - frps_log:/var/log
+    networks:
+      - frp_network
+
+networks:
+  frp_network:
+    driver: bridge
+
+volumes:
+  frps_log:

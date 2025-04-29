@@ -1,0 +1,125 @@
+# Valores para el despliegue de FRP en entorno de desarrollo
+
+# Configuración global
+global:
+  namespace: fintech-personal-dev
+  environment: dev
+
+# Configuración del servidor (frps)
+frps:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: snowdreamtech/frps
+    tag: 0.51.3
+    # Aseguramos compatibilidad con ARM64 para Raspberry Pi
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  
+  service:
+    type: ClusterIP
+    ports:
+      - name: frps
+        port: 7000
+        targetPort: 7000
+      - name: dashboard
+        port: 7500
+        targetPort: 7500
+  
+  # Configuración para ingress con Cilium
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: cilium
+    hosts:
+      - host: frps-dev.local
+        paths:
+          - path: /
+            pathType: Prefix
+            port: 7500
+  
+  # Configuración para persistencia
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /data
+  
+  # Configuración del archivo frps.ini
+  config:
+    content: |
+      [common]
+      bind_port = 7000
+      dashboard_port = 7500
+      dashboard_user = admin
+      dashboard_pwd = admin123
+      token = dev_secure_token_change_me
+      tls_enable = true
+      log_file = /data/frps.log
+      log_level = info
+      log_max_days = 3
+      max_pool_count = 50
+      max_ports_per_client = 10
+      enable_prometheus = true
+
+# Configuración del cliente (frpc)
+frpc:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: snowdreamtech/frpc
+    tag: 0.51.3
+    # Aseguramos compatibilidad con ARM64 para Raspberry Pi
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  # Configuración para persistencia
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /data
+  
+  # Configuración del archivo frpc.ini
+  config:
+    content: |
+      [common]
+      server_addr = frps
+      server_port = 7000
+      token = dev_secure_token_change_me
+      tls_enable = true
+      log_file = /data/frpc.log
+      log_level = info
+      log_max_days = 3
+      login_fail_exit = false
+      reconnect_interval = 5
+      
+      # Ejemplo para exponer web-app
+      [web-app]
+      type = http
+      local_ip = web-app
+      local_port = 3000
+      custom_domains = web-app-dev.local
+      
+      # Ejemplo para exponer MongoDB
+      [mongodb]
+      type = tcp
+      local_ip = mongodb
+      local_port = 27017
+      remote_port = 27017
