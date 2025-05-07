@@ -24,6 +24,19 @@ spec:
       securityContext:
         runAsUser: 999  # ID del usuario mongodb
         fsGroup: 999
+      initContainers:
+      - name: init-mongodb-data
+        image: busybox
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          chown -R 999:999 /data/db
+          chmod -R 0700 /data/db
+        securityContext:
+          runAsUser: 0  # Ejecutar como root para poder cambiar permisos
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
       containers:
       - name: mongodb
         image: mongo:4.4.18
