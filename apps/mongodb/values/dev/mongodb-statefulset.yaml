@@ -6,6 +6,11 @@ metadata:
 spec:
   serviceName: mongodb
   replicas: 1
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      partition: 0
+  podManagementPolicy: OrderedReady
   selector:
     matchLabels:
       app: mongodb
