@@ -16,6 +16,9 @@ spec:
       annotations:
         checksum/config: "${RANDOM}"
     spec:
+      securityContext:
+        runAsUser: 999  # ID del usuario mongodb
+        fsGroup: 999
       containers:
       - name: mongodb
         image: mongo:4.4.18
