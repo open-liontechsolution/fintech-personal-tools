@@ -24,6 +24,7 @@ jobs:
     environment: ${{ github.event.inputs.environment || 'dev' }}
     env:
       FRPS_BIND_PORT: 7000  # Default bind port for FRP Server
+      VPS_HOST: ${{ vars.VPS_HOST }}  # VPS host from environment variables
     
     steps:
       - name: Checkout code
