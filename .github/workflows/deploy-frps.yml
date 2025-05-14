@@ -24,6 +24,11 @@ jobs:
     environment: ${{ github.event.inputs.environment || 'dev' }}
     env:
       FRPS_BIND_PORT: 7000  # Default bind port for FRP Server
+      FRPS_DASHBOARD_PORT: ${{ vars.FRPS_DASHBOARD_PORT }}  # Dashboard port
+      FRPS_DASHBOARD_ADDR: ${{ vars.FRPS_DASHBOARD_ADDR }}  # Dashboard address
+      FRPS_DASHBOARD_USER: ${{ secrets.FRPS_DASHBOARD_USER }}
+      FRPS_DASHBOARD_PASSWORD: ${{ secrets.FRPS_DASHBOARD_PASSWORD }}
+      FRP_TOKEN: ${{ secrets.FRP_TOKEN }}
       VPS_HOST: ${{ vars.VPS_HOST }}  # VPS host from environment variables
     
     steps:
@@ -81,6 +86,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          envs: FRPS_BIND_PORT,FRPS_DASHBOARD_PORT,FRPS_DASHBOARD_ADDR,FRPS_DASHBOARD_USER,FRPS_DASHBOARD_PASSWORD,FRP_TOKEN
           script: |
             cd /opt/frps
             
