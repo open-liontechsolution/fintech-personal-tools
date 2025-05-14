@@ -62,7 +62,7 @@ jobs:
           script: |
             cd /opt/frps
             
-            docker-compose down
-            docker-compose pull
-            docker-compose up -d
+            docker compose down
+            docker compose pull
+            docker compose up -d
             echo "FRP Server deployed successfully"
