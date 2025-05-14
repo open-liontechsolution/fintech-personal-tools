@@ -36,4 +36,3 @@ networks:
 volumes:
   frps_log:
     driver: local # O tu driver de volúmenes preferido
-#
