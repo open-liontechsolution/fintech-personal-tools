@@ -85,6 +85,20 @@ jobs:
           script: |
             cd /opt/frps
             
+            # Create .env file for Docker Compose
+            echo "FRPS_BIND_PORT=${FRPS_BIND_PORT}" > .env
+            echo "FRPS_DASHBOARD_PORT=${FRPS_DASHBOARD_PORT}" >> .env
+            echo "FRPS_DASHBOARD_ADDR=${FRPS_DASHBOARD_ADDR}" >> .env
+            echo "FRPS_DASHBOARD_USER=${FRPS_DASHBOARD_USER}" >> .env
+            echo "FRPS_DASHBOARD_PASSWORD=${FRPS_DASHBOARD_PASSWORD}" >> .env
+            echo "FRP_TOKEN=${FRP_TOKEN}" >> .env
+            
+            # Show the .env file for debugging (without showing sensitive values)
+            echo "Created .env file with the following variables:"
+            grep -v 'PASSWORD\|TOKEN' .env
+            echo "(Password and token values hidden)"
+            
+            # Run Docker Compose with the .env file
             docker compose -f docker-compose.yaml down
             docker compose -f docker-compose.yaml pull
             docker compose -f docker-compose.yaml up -d
