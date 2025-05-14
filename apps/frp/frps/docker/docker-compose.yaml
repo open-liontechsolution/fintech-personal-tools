@@ -1,0 +1,40 @@
+version: '3'
+
+services:
+  frps:
+    image: snowdreamtech/frps:0.62.1 # Actualizado a la versión más reciente
+    container_name: frps
+    restart: always
+    ports:
+      # Izquierda: Puerto en el VPS (HOST), Derecha: Puerto en el Contenedor (CONTAINER)
+      # Los puertos del CONTENEDOR son los que frps usa internamente, definidos por las ENV vars más abajo.
+      - "${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"                # Ej: el puerto 7000 del VPS mapea al 7000 del contenedor
+      - "${FRPS_DASHBOARD_PORT}:${FRPS_DASHBOARD_PORT}"      # Ej: el puerto 7500 del VPS mapea al 7500 del contenedor
+      # Puertos estándar (puedes mantenerlos o hacerlos variables también)
+      - "80:80"
+      - "443:443"
+      # Puedes añadir más mapeos de puertos aquí si los necesitas
+    volumes:
+      - ./frps.toml:/etc/frp/frps.toml  # Monta el archivo de configuración TOML
+      - frps_log:/var/log               # Logs persistentes
+    networks:
+      - frp_network
+    environment:
+      # Estas variables son leídas por frps.toml mediante {{ .Envs.VAR_NAME }}
+      # Sus valores vendrán de los GitHub Secrets a través del workflow.
+      FRPS_BIND_PORT: ${FRPS_BIND_PORT}
+      FRPS_WEBSERVER_ADDR: ${FRPS_DASHBOARD_ADDR}
+      FRPS_WEBSERVER_PORT: ${FRPS_DASHBOARD_PORT}
+      FRPS_WEBSERVER_USER: ${FRPS_DASHBOARD_USER}
+      FRPS_WEBSERVER_PASSWORD: ${FRPS_DASHBOARD_PASSWORD}
+      FRPS_AUTH_TOKEN: ${FRP_TOKEN}
+      # Puedes añadir más variables si tu frps.toml las espera
+      # Ejemplo: FRPS_LOG_LEVEL: info
+
+networks:
+  frp_network:
+    driver: bridge
+
+volumes:
+  frps_log:
+    driver: local # O tu driver de volúmenes preferido

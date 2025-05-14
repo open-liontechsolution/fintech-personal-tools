@@ -1,0 +1,60 @@
+# Valores para el despliegue de FRP en entorno de desarrollo
+
+# Configuración global
+global:
+  namespace: fintech-personal-dev
+  environment: dev
+
+# Configuración del cliente (frpc)
+frpc:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: snowdreamtech/frpc
+    tag: 0.51.3
+    # Aseguramos compatibilidad con ARM64 para Raspberry Pi
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  
+  # Configuración para persistencia
+  persistence:
+    enabled: true
+    storageClass: longhorn
+    accessMode: ReadWriteOnce
+    size: 1Gi
+    mountPath: /data
+  
+  # Configuración del archivo frpc.ini
+  config:
+    content: |
+      [common]
+      server_addr = frps
+      server_port = 7000
+      token = dev_secure_token_change_me
+      tls_enable = true
+      log_file = /data/frpc.log
+      log_level = info
+      log_max_days = 3
+      login_fail_exit = false
+      reconnect_interval = 5
+      
+      # Ejemplo para exponer web-app
+      [web-app]
+      type = http
+      local_ip = web-app
+      local_port = 3000
+      custom_domains = web-app-dev.local
+      
+      # Ejemplo para exponer MongoDB
+      [mongodb]
+      type = tcp
+      local_ip = mongodb
+      local_port = 27017
+      remote_port = 27017
