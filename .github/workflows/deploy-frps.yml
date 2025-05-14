@@ -35,7 +35,7 @@ jobs:
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           source: "apps/frp/frps/docker/docker-compose.yaml,apps/frp/frps/docker/frps.toml"
           target: "/opt/frps"
@@ -45,7 +45,7 @@ jobs:
         with:
           host: ${{ env.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
-          key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           envs: "FRPS_BIND_PORT=${{ env.FRPS_BIND_PORT }},FRPS_DASHBOARD_PORT=${{ secrets.FRPS_DASHBOARD_PORT }},FRPS_DASHBOARD_ADDR=${{ secrets.FRPS_DASHBOARD_ADDR }},FRPS_DASHBOARD_USER=${{ secrets.FRPS_DASHBOARD_USER }},FRPS_DASHBOARD_PASSWORD=${{ secrets.FRPS_DASHBOARD_PASSWORD }},FRP_TOKEN=${{ secrets.FRP_TOKEN }}"
           script: |
