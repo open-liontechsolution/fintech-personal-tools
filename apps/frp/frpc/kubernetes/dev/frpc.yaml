@@ -1,39 +1,8 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: frpc-config
-  namespace: ${NAMESPACE}
-data:
-  frpc.ini: |
-    [common]
-    server_addr = ${FRPS_SERVER_ADDR}
-    server_port = 7000
-    token = ${FRP_TOKEN}
-    tls_enable = true
-    log_file = /var/log/frpc.log
-    log_level = info
-    log_max_days = 3
-    login_fail_exit = false
-    reconnect_interval = 5
-    
-    # Configuración para exponer servicios (personalizar según necesidades)
-    [web-app]
-    type = http
-    local_ip = web-app
-    local_port = 3000
-    custom_domains = ${WEB_APP_DOMAIN}
-    
-    [mongodb]
-    type = tcp
-    local_ip = mongodb
-    local_port = 27017
-    remote_port = 27017
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frpc
-  namespace: ${NAMESPACE}
+  namespace: frpc-dev
   labels:
     app: frpc
 spec:
@@ -52,8 +21,8 @@ spec:
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: config
-          mountPath: /etc/frp/frpc.ini
-          subPath: frpc.ini
+          mountPath: /etc/frp/frpc.toml
+          subPath: frpc.toml
         - name: logs
           mountPath: /var/log
         resources:
@@ -75,7 +44,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: frpc-logs
-  namespace: ${NAMESPACE}
+  namespace: frpc-dev
 spec:
   accessModes:
     - ReadWriteOnce
