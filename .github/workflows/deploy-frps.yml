@@ -90,7 +90,15 @@ jobs:
           script: |
             cd /opt/frps
             
-            # Create a .env file for docker-compose with environment variables
+            # Set environment variables directly in this session (original method)
+            export FRPS_BIND_PORT="${{ env.FRPS_BIND_PORT }}"
+            export FRPS_DASHBOARD_PORT="${{ env.FRPS_DASHBOARD_PORT }}"
+            export FRPS_DASHBOARD_ADDR="${{ env.FRPS_DASHBOARD_ADDR }}"
+            export FRPS_DASHBOARD_USER="${{ env.FRPS_DASHBOARD_USER }}"
+            export FRPS_DASHBOARD_PASSWORD="${{ env.FRPS_DASHBOARD_PASSWORD }}"
+            export FRP_TOKEN="${{ env.FRP_TOKEN }}"
+            
+            # Also create a .env file for docker-compose with environment variables
             cat > .env << EOF
             FRPS_BIND_PORT=${{ env.FRPS_BIND_PORT }}
             FRPS_DASHBOARD_PORT=${{ env.FRPS_DASHBOARD_PORT }}
@@ -105,10 +113,10 @@ jobs:
             
             # Show the variables (without showing sensitive values)
             echo "Using the following environment variables:"
-            echo "FRPS_BIND_PORT=${{ env.FRPS_BIND_PORT }}"
-            echo "FRPS_DASHBOARD_PORT=${{ env.FRPS_DASHBOARD_PORT }}"
-            echo "FRPS_DASHBOARD_ADDR=${{ env.FRPS_DASHBOARD_ADDR }}"
-            echo "FRPS_DASHBOARD_USER=[REDACTED]"
+            echo "FRPS_BIND_PORT=$FRPS_BIND_PORT"
+            echo "FRPS_DASHBOARD_PORT=$FRPS_DASHBOARD_PORT"
+            echo "FRPS_DASHBOARD_ADDR=$FRPS_DASHBOARD_ADDR"
+            echo "FRPS_DASHBOARD_USER=$FRPS_DASHBOARD_USER"
             echo "(Password and token values hidden)"
             
             # Run Docker Compose with the environment variables from .env file
