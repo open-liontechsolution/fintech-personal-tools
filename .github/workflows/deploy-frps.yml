@@ -91,8 +91,8 @@ jobs:
             cd /opt/frps
             
             # Set environment variables directly in this session (original method)
-            export FRPS_BIND_PORT="${{ env.FRPS_BIND_PORT }}"
-            export FRPS_DASHBOARD_PORT="${{ env.FRPS_DASHBOARD_PORT }}"
+            export FRPS_BIND_PORT=${{ env.FRPS_BIND_PORT }}
+            export FRPS_DASHBOARD_PORT=${{ env.FRPS_DASHBOARD_PORT }}
             export FRPS_DASHBOARD_ADDR="${{ env.FRPS_DASHBOARD_ADDR }}"
             export FRPS_DASHBOARD_USER="${{ env.FRPS_DASHBOARD_USER }}"
             export FRPS_DASHBOARD_PASSWORD="${{ env.FRPS_DASHBOARD_PASSWORD }}"
