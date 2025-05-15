@@ -1,9 +1,9 @@
-bindPort = "{{ .Envs.FRPS_BIND_PORT }}"
+bindPort = {{ .Envs.FRPS_BIND_PORT }}
 
 # Configure the web server to enable the dashboard for frps.
 # dashboard is available only if webServer.port is set.
 webServer.addr = "{{ .Envs.FRPS_DASHBOARD_ADDR }}"
-webServer.port = "{{ .Envs.FRPS_DASHBOARD_PORT }}"
+webServer.port = {{ .Envs.FRPS_DASHBOARD_PORT }}
 webServer.user = "{{ .Envs.FRPS_DASHBOARD_USER }}"
 webServer.password = "{{ .Envs.FRPS_DASHBOARD_PASSWORD }}"
 
