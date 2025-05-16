@@ -1,11 +1,13 @@
-bindPort = {{ .Envs.FRPS_BIND_PORT }}
+# FRP Server Configuration (frps)
+# Using direct values instead of templates for troubleshooting
 
-# Configure the web server to enable the dashboard for frps.
-# dashboard is available only if webServer.port is set.
-webServer.addr = "{{ .Envs.FRPS_DASHBOARD_ADDR }}"
-webServer.port = {{ .Envs.FRPS_DASHBOARD_PORT }}
-webServer.user = "{{ .Envs.FRPS_DASHBOARD_USER }}"
-webServer.password = "{{ .Envs.FRPS_DASHBOARD_PASSWORD }}"
+bindPort = 7000
+
+# Configure the web server to enable the dashboard for frps
+webServer.addr = "0.0.0.0"
+webServer.port = 7500
+webServer.user = "admin"
+webServer.password = "admin"
 
 # Authentication token
-auth.token = "{{ .Envs.FRP_TOKEN }}"
+auth.token = "test-token"
