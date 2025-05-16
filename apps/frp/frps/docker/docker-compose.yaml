@@ -1,7 +1,7 @@
 services:
   frps:
     image: snowdreamtech/frps:0.62.1 # Actualizado a la versión más reciente
-    container_name: frps
+    container_name: frps-dev
     restart: always
     ports:
       # Izquierda: Puerto en el VPS (HOST), Derecha: Puerto en el Contenedor (CONTAINER)

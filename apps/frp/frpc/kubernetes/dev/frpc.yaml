@@ -17,14 +17,12 @@ spec:
     spec:
       containers:
       - name: frpc
-        image: snowdreamtech/frpc:0.51.3
+        image: snowdreamtech/frpc:0.62.1
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: config
           mountPath: /etc/frp/frpc.toml
           subPath: frpc.toml
-        - name: logs
-          mountPath: /var/log
         resources:
           limits:
             cpu: 150m
@@ -34,5 +32,5 @@ spec:
             memory: 96Mi
       volumes:
       - name: config
-        configMap:
-          name: frpc-config
+        secret:
+          secretName: frpc-secrets

@@ -1,0 +1,102 @@
+name: Deploy Nginx Proxy Manager
+
+on:
+  push:
+    paths:
+      - 'apps/nginx-proxy-manager/docker/**'
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - production
+          - qa
+          - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    env:
+      NPM_ADMIN_PORT: ${{ vars.NPM_ADMIN_PORT || '81' }}  # Admin UI port
+      VPS_HOST: ${{ vars.VPS_HOST }}  # VPS host from environment variables
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Create target directory on VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            sudo mkdir -p /opt/nginx-proxy-manager
+            sudo chown $USER:$USER /opt/nginx-proxy-manager
+      
+      - name: Deploy configuration files to VPS
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            # Debug - show what's in the directory before we start
+            ls -la /opt/nginx-proxy-manager
+      
+      - name: Copy Docker Compose file
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          source: "apps/nginx-proxy-manager/docker/docker-compose.yaml"
+          target: "/opt/nginx-proxy-manager/"
+          strip_components: 4
+      
+      - name: Deploy and Start Nginx Proxy Manager
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          envs: NPM_ADMIN_PORT
+          script: |
+            cd /opt/nginx-proxy-manager
+            
+            # Set environment variables directly in this session
+            export NPM_ADMIN_PORT=${NPM_ADMIN_PORT:-81}
+            
+            # Create a .env file for docker-compose with environment variables if needed
+            cat > .env << EOF
+            NPM_ADMIN_PORT=${NPM_ADMIN_PORT:-81}
+            EOF
+            
+            # Secure the .env file
+            chmod 600 .env
+            
+            # Show the environment variables
+            echo "Using the following environment variables:"
+            echo "NPM_ADMIN_PORT=$NPM_ADMIN_PORT"
+            
+            # Create directories for volumes if they don't exist
+            mkdir -p ./data ./letsencrypt
+            
+            # Run Docker Compose with the environment variables from .env file
+            docker compose -f docker-compose.yaml down
+            docker compose -f docker-compose.yaml pull
+            docker compose -f docker-compose.yaml up -d
+            
+            echo "Nginx Proxy Manager deployed successfully"
+            echo "Admin UI will be available at: http://$HOSTNAME:$NPM_ADMIN_PORT"
+            echo "Default credentials: admin@example.com / changeme"

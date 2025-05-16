@@ -1,0 +1,26 @@
+version: '3'
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      # Estos puertos están en formato <puerto-host>:<puerto-contenedor>
+      - '80:80'     # Puerto HTTP público
+      - '443:443'   # Puerto HTTPS público
+      - '${NPM_ADMIN_PORT:-81}:81'  # Puerto para la administración web
+    environment:
+      # Puedes descomentar esto para cambiar la ubicación del archivo de base de datos SQLite
+      # DB_SQLITE_FILE: "/data/database.sqlite"
+      
+      # Deshabilitamos IPv6 si no lo necesitas
+      DISABLE_IPV6: 'true'
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+
+volumes:
+  npm_data:
+    driver: local
+  npm_letsencrypt:
+    driver: local
