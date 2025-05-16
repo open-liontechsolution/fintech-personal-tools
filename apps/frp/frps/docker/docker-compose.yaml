@@ -9,8 +9,8 @@ services:
       - "${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"                # Ej: el puerto 7000 del VPS mapea al 7000 del contenedor
       - "${FRPS_DASHBOARD_PORT}:${FRPS_DASHBOARD_PORT}"      # Ej: el puerto 7500 del VPS mapea al 7500 del contenedor
       # Puertos estándar (puedes mantenerlos o hacerlos variables también)
-      - "80:80"
-      - "443:443"
+      # - "80:80"
+      # - "443:443"
       # Puedes añadir más mapeos de puertos aquí si los necesitas
     volumes:
       - ./frps.toml:/etc/frp/frps.toml  # Monta el archivo de configuración TOML
