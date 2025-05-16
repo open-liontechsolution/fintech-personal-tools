@@ -61,7 +61,7 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           source: "apps/nginx-proxy-manager/docker/docker-compose.yaml"
           target: "/opt/nginx-proxy-manager/"
-          strip_components: 4
+          strip_components: 0
       
       - name: Deploy and Start Nginx Proxy Manager
         uses: appleboy/ssh-action@master
@@ -73,6 +73,10 @@ jobs:
           envs: NPM_ADMIN_PORT
           script: |
             cd /opt/nginx-proxy-manager
+            
+            # Verificar qué archivos se copiaron
+            echo "Listing files in current directory:"
+            ls -la
             
             # Set environment variables directly in this session
             export NPM_ADMIN_PORT=${NPM_ADMIN_PORT:-81}
@@ -92,11 +96,29 @@ jobs:
             # Create directories for volumes if they don't exist
             mkdir -p ./data ./letsencrypt
             
-            # Run Docker Compose with the environment variables from .env file
-            docker compose -f docker-compose.yaml down
-            docker compose -f docker-compose.yaml pull
-            docker compose -f docker-compose.yaml up -d
+            # Find the docker-compose file
+            echo "Searching for docker-compose.yaml file:"
+            find /opt/nginx-proxy-manager -name docker-compose.yaml
             
-            echo "Nginx Proxy Manager deployed successfully"
-            echo "Admin UI will be available at: http://$HOSTNAME:$NPM_ADMIN_PORT"
-            echo "Default credentials: admin@example.com / changeme"
+            # Check if the file exists in the expected location
+            if [ -f "apps/nginx-proxy-manager/docker/docker-compose.yaml" ]; then
+              DOCKER_COMPOSE_PATH="apps/nginx-proxy-manager/docker/docker-compose.yaml"
+            else
+              # If not found in the expected location, find it
+              DOCKER_COMPOSE_PATH=$(find /opt/nginx-proxy-manager -name docker-compose.yaml | head -n 1)
+            fi
+            
+            echo "Using docker-compose file: $DOCKER_COMPOSE_PATH"
+            
+            # Run Docker Compose with the environment variables from .env file
+            if [ -n "$DOCKER_COMPOSE_PATH" ]; then
+              docker compose -f "$DOCKER_COMPOSE_PATH" down
+              docker compose -f "$DOCKER_COMPOSE_PATH" pull
+              docker compose -f "$DOCKER_COMPOSE_PATH" up -d
+              echo "Nginx Proxy Manager deployed successfully"
+              echo "Admin UI will be available at: http://$HOSTNAME:$NPM_ADMIN_PORT"
+              echo "Default credentials: admin@example.com / changeme"
+            else
+              echo "ERROR: Could not find docker-compose.yaml file!"
+              exit 1
+            fi
