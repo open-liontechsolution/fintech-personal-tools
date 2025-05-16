@@ -36,19 +36,3 @@ spec:
       - name: config
         configMap:
           name: frpc-config
-      - name: logs
-        persistentVolumeClaim:
-          claimName: frpc-logs
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: frpc-logs
-  namespace: frpc-dev
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: longhorn
-  resources:
-    requests:
-      storage: 1Gi

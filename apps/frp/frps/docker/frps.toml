@@ -3,6 +3,10 @@
 
 bindPort = {{ .Envs.FRPS_BIND_PORT }}
 
+# tcpKeepalive specifies the interval between keep-alive probes for an active network connection between frpc and frps.
+# If negative, keep-alive probes are disabled.
+transport.tcpKeepalive = 7200
+
 # Configure the web server to enable the dashboard for frps
 # Using 0.0.0.0 to listen on all interfaces instead of a specific IP
 webServer.addr = "0.0.0.0"
@@ -12,3 +16,11 @@ webServer.password = "{{ .Envs.FRPS_WEBSERVER_PASSWORD }}"
 
 # Authentication token
 auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"
+
+# console or real logFile path like ./frps.log
+log.to = "./frps.log"
+# trace, debug, info, warn, error
+log.level = "info"
+log.maxDays = 3
+# disable log colors when log.to is console, default is false
+log.disablePrintColor = false
