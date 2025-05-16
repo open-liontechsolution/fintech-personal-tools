@@ -1,13 +1,13 @@
 # FRP Server Configuration (frps)
-# Using direct values instead of templates for troubleshooting
+# Using correct environment variable names as defined in docker-compose.yaml
 
-bindPort = 7000
+bindPort = {{ .Envs.FRPS_BIND_PORT }}
 
 # Configure the web server to enable the dashboard for frps
-webServer.addr = "0.0.0.0"
-webServer.port = 7500
-webServer.user = "admin"
-webServer.password = "admin"
+webServer.addr = "{{ .Envs.FRPS_WEBSERVER_ADDR }}"
+webServer.port = {{ .Envs.FRPS_WEBSERVER_PORT }}
+webServer.user = "{{ .Envs.FRPS_WEBSERVER_USER }}"
+webServer.password = "{{ .Envs.FRPS_WEBSERVER_PASSWORD }}"
 
 # Authentication token
-auth.token = "test-token"
+auth.token = "{{ .Envs.FRPS_AUTH_TOKEN }}"
