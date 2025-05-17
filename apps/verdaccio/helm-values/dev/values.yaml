@@ -94,3 +94,43 @@ secrets:
 # Definir etiquetas para identificar el entorno
 extraLabels:
   environment: dev
+
+# existingSecret: "frpc-secrets"
+
+extraManifests: 
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: frpc
+      namespace: verdaccio-dev
+      labels:
+        app: frpc
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: frpc
+      template:
+        metadata:
+          labels:
+            app: frpc
+        spec:
+          containers:
+          - name: frpc
+            image: snowdreamtech/frpc:0.62.1
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+            - name: config
+              mountPath: /etc/frp/frpc.toml
+              subPath: frpc.toml
+            resources:
+              limits:
+                cpu: 150m
+                memory: 192Mi
+              requests:
+                cpu: 75m
+                memory: 96Mi
+          volumes:
+          - name: config
+            secret:
+              secretName: frpc-secrets
