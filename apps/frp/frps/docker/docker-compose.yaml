@@ -17,7 +17,7 @@ services:
       - ./frps.toml:/etc/frp/frps.toml  # Monta el archivo de configuración TOML
       - frps_log:/var/log               # Logs persistentes
     networks:
-      - frp_network
+      - shared_network
     environment:
       # Estas variables son leídas por frps.toml mediante {{ .Envs.VAR_NAME }}
       # Sus valores vendrán de los GitHub Secrets a través del workflow.
@@ -31,8 +31,10 @@ services:
       # Ejemplo: FRPS_LOG_LEVEL: info
 
 networks:
-  frp_network:
+  shared_network:
     driver: bridge
+    # Esta configuración permite que la red sea accesible globalmente
+    name: fintech_shared_network
 
 volumes:
   frps_log:
