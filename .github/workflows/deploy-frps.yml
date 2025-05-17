@@ -86,7 +86,7 @@ jobs:
           username: ${{ secrets.VPS_USERNAME }}
           password: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
-          envs: FRPS_BIND_PORT,FRPS_DASHBOARD_PORT,FRPS_DASHBOARD_ADDR,FRPS_DASHBOARD_USER,FRPS_DASHBOARD_PASSWORD,FRP_TOKEN
+          envs: FRPS_BIND_PORT,FRPS_DASHBOARD_PORT,FRPS_DASHBOARD_ADDR,FRPS_DASHBOARD_USER,FRPS_DASHBOARD_PASSWORD,FRP_TOKEN,FRPC_VERDACCIO_PORT
           script: |
             cd /opt/frps
             
@@ -97,7 +97,8 @@ jobs:
             export FRPS_DASHBOARD_USER="${{ env.FRPS_DASHBOARD_USER }}"
             export FRPS_DASHBOARD_PASSWORD="${{ env.FRPS_DASHBOARD_PASSWORD }}"
             export FRP_TOKEN="${{ env.FRP_TOKEN }}"
-            
+            export FRPC_VERDACCIO_PORT="${{ env.FRPC_VERDACCIO_PORT }}"
+
             # Also create a .env file for docker-compose with environment variables
             cat > .env << EOF
             FRPS_BIND_PORT=${{ env.FRPS_BIND_PORT }}
@@ -106,6 +107,7 @@ jobs:
             FRPS_DASHBOARD_USER=${{ env.FRPS_DASHBOARD_USER }}
             FRPS_DASHBOARD_PASSWORD=${{ env.FRPS_DASHBOARD_PASSWORD }}
             FRP_TOKEN=${{ env.FRP_TOKEN }}
+            FRPC_VERDACCIO_PORT=${{ env.FRPC_VERDACCIO_PORT }}
             EOF
             
             # Secure the .env file

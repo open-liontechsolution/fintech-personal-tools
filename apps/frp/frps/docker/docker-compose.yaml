@@ -8,6 +8,7 @@ services:
       # Los puertos del CONTENEDOR son los que frps usa internamente, definidos por las ENV vars más abajo.
       - "${FRPS_BIND_PORT}:${FRPS_BIND_PORT}"                # Ej: el puerto 7000 del VPS mapea al 7000 del contenedor
       - "${FRPS_DASHBOARD_PORT}:${FRPS_DASHBOARD_PORT}"      # Ej: el puerto 7500 del VPS mapea al 7500 del contenedor
+      - "${FRPC_VERDACCIO_PORT}:${FRPC_VERDACCIO_PORT}"
       # Puertos estándar (puedes mantenerlos o hacerlos variables también)
       # - "80:80"
       # - "443:443"
