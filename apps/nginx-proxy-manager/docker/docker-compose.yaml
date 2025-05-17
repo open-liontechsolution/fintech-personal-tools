@@ -3,6 +3,8 @@ services:
     image: 'jc21/nginx-proxy-manager:latest'
     container_name: nginx-proxy-manager-dev
     restart: unless-stopped
+    networks:
+      - frp_network
     ports:
       # Estos puertos están en formato <puerto-host>:<puerto-contenedor>
       - '80:80'     # Puerto HTTP público
@@ -23,3 +25,7 @@ volumes:
     driver: local
   npm_letsencrypt:
     driver: local
+
+networks:
+  frp_network:
+    external: true

@@ -97,6 +97,10 @@ extraLabels:
 
 # existingSecret: "frpc-secrets"
 
+extraEnvVars:
+  - name: VERDACCIO_PUBLIC_URL
+    value: "https://verdaccio.liontechsolution.com"
+
 extraManifests: 
   - apiVersion: apps/v1
     kind: Deployment
