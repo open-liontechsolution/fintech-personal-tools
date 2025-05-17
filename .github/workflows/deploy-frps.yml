@@ -29,6 +29,7 @@ jobs:
       FRPS_DASHBOARD_USER: ${{ secrets.FRPS_DASHBOARD_USER }}
       FRPS_DASHBOARD_PASSWORD: ${{ secrets.FRPS_DASHBOARD_PASSWORD }}
       FRP_TOKEN: ${{ secrets.FRP_TOKEN }}
+      FRPC_VERDACCIO_PORT: ${{ vars.FRPC_VERDACCIO_PORT }}
       VPS_HOST: ${{ vars.VPS_HOST }}  # VPS host from environment variables
     
     steps:
