@@ -129,11 +129,11 @@ extraManifests:
               subPath: frpc.toml
             resources:
               limits:
-                cpu: 150m
-                memory: 192Mi
+                cpu: 300m
+                memory: 256Mi
               requests:
-                cpu: 75m
-                memory: 96Mi
+                cpu: 150m
+                memory: 128Mi
           volumes:
           - name: config
             secret:

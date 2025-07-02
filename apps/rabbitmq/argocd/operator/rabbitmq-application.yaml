@@ -1,3 +1,6 @@
+## no funciona por ahora usar el siguiente comando
+# helm install rabbitmq-operator bitnami/rabbitmq-cluster-operator --version 4.4.7 --namespace rabbitmq-system -f apps/rabbitmq/values/operator/values.yaml
+
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -26,5 +29,3 @@ spec:
     syncOptions:
       - CreateNamespace=true
 
-## no funciona por ahora usar el siguiente comando
-# helm install rabbitmq-operator bitnami/rabbitmq-cluster-operator --version 4.4.7 --namespace rabbitmq-system -f apps/rabbitmq/values/operator/values.yaml
