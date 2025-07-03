@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-fintech-data-import-to-mongodb
+  namespace: mongodb-dev
+spec:
+  podSelector:
+    matchLabels:
+      app: mongodb
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: fintech-data-import
+          namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: fintech-dev
+  policyTypes:
+    - Ingress
