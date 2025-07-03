@@ -8,6 +8,7 @@ spec:
     matchLabels:
       app: mongodb
   ingress:
+    # Permitir tráfico desde fintech-data-import en el namespace fintech-dev
     - from:
         - podSelector:
             matchLabels:
@@ -15,5 +16,8 @@ spec:
           namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: fintech-dev
+    # Permitir todo el tráfico dentro del mismo namespace mongodb-dev
+    - from:
+        - podSelector: {}
   policyTypes:
     - Ingress
